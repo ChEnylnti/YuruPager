@@ -52,6 +52,53 @@ distribution remain separate signed deployment work.
 - Docker with Compose
 - macOS or Linux and a signed-in `codex` CLI for the Connector
 
+## Repository guide
+
+YuruPager is an npm workspaces monorepo. The root package is itself the
+Connector daemon; the workspaces hold the server, the web console, and shared
+code.
+
+```text
+.
+├── src/                  # Connector daemon (the root package, published as `yurupager`)
+│   ├── connector/        # CLI entry, runtime, setup, version gate
+│   ├── codex/            # Codex app-server protocol adapter (JSON-RPC, conversation, images)
+│   ├── preview/          # Local development preview CLI and loopback tunnel
+│   ├── reliability/      # SQLite journals/ledger, decision gate, token accumulator
+│   ├── transport/        # Connector cloud transport (WSS client, message store)
+│   └── spike/            # Re-runnable live-verification scripts (kept as evidence)
+├── apps/
+│   ├── server/           # Fastify 5 REST/WSS API, PostgreSQL (RLS) schema in db/
+│   ├── web/              # React 19 + Vite 7 desktop console / mobile PWA, Playwright e2e
+│   └── ios/              # SwiftUI client (Xcode project) + YuruPagerCore Swift package
+├── packages/shared/      # Shared protocol types (@yurupager/shared)
+├── test/                 # Connector tests (node --test, run against dist/)
+├── scripts/              # Connector packaging and verification scripts
+├── deploy/nginx/         # Reverse-proxy configuration examples
+├── docs/                 # Product requirements, ADRs, interaction contract, reports
+└── vendor/marked/        # Vendored dependency referenced via file: protocol
+```
+
+Common commands (run from the repository root unless noted):
+
+```bash
+npm install              # install all workspaces
+npm run db:up            # start the local PostgreSQL container
+npm run dev              # run API server and Vite web console together
+npm run lint             # lint all workspaces
+npm run typecheck        # build + typecheck all workspaces
+npm run test:all         # connector + server + web test suites
+npm run build:all        # build shared, connector, server, and web
+npm run e2e              # Playwright end-to-end tests (apps/web)
+npm run connector:start  # run the Connector against the local Codex app-server
+npm run connector:preview  # expose a local dev port through the Connector
+cd apps/ios && swift run yurupager-core-checks  # iOS core sanity checks (macOS)
+```
+
+Connector spike commands (`npm run spike:*`) remain available; see
+[Technical spike commands](#technical-spike-commands). Reference documents live
+under [Documents](#documents).
+
 ## Connect another Codex workstation
 
 1. Sign in to YuruPager and open **Workstations**.
