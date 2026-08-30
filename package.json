@@ -33,6 +33,8 @@
     "connector:preview": "npm run build --workspace @yurupager/shared && npm run build && node dist/src/connector/main.js preview",
     "test:compiled": "node --test dist/test/*.test.js",
     "spike:handshake": "npm run build && node dist/src/spike/handshake.js",
+    "spike:acp-handshake": "npm run build && node dist/src/spike/acp-handshake.js",
+    "spike:gemini-e2e": "npm run build && node dist/src/spike/gemini-e2e.js",
     "spike:approval": "npm run build && node dist/src/spike/approval.js",
     "spike:question": "npm run build && node dist/src/spike/question.js",
     "spike:shared-session": "npm run build && node dist/src/spike/shared-session.js",
