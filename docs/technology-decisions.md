@@ -46,9 +46,9 @@
 | ADR-022 | ESLint（flat config）+ typescript-eslint 作为工程质量门禁 linter | MVP 采纳，warn 级起步 |
 | ADR-023 | 数据库 Schema 采用有序幂等版本化迁移，自研编号 SQL runner + 旧库补登记 | MVP 采纳 |
 | ADR-024 | Connector 采用多 Agent 运行时（AgentRuntime 接口 + 扇出编排，共享云端连接） | Phase 1 采纳 |
-| ADR-025 | 会话发现按 agent 能力降级，禁止读取 agent 本地转录文件 | 草案 |
+| ADR-025 | 会话发现按 agent 能力降级，禁止读取 agent 本地转录文件 | Phase 2 采纳 |
 | ADR-026 | Connector 协议 v2 增量演进：agent 字段 + sessionId 别名，不做破坏性改名 | Phase 1 采纳 |
-| ADR-027 | 审批归一化到 RequestContext/DecisionInput，未知选项 fail-closed；version-gate 泛化为 per-agent 能力探测 | 草案 |
+| ADR-027 | 审批归一化到 RequestContext/DecisionInput，未知选项 fail-closed；version-gate 泛化为 per-agent 能力探测 | Phase 2 采纳 |
 
 ## 3. Codex 能力证据基线
 
@@ -1099,7 +1099,7 @@ YuruPager 现为单一 Codex 控制台：`ConnectorRuntime` 直接持有 `CodexA
 
 ## ADR-025：会话发现按 agent 能力降级
 
-- 状态：草案
+- 状态：Phase 2 采纳（2026-08-30 实施：ACP own-sessions + session/load 重放 + node:sqlite 会话绑定持久化）
 - 决策日期：2026-08-30
 
 ### 背景与选择
@@ -1145,7 +1145,7 @@ Codex 提供 `thread/list` 全局发现；ACP 的 `session/list` 仍是 RFD 未�
 
 ## ADR-027：审批归一化与 per-agent 能力探测
 
-- 状态：草案
+- 状态：Phase 2 采纳（2026-08-30 实施：ACP 权限选项映射 + 未知请求拒绝 + initialize 协议门禁）
 - 决策日期：2026-08-30
 
 ### 背景与选择
@@ -1194,6 +1194,7 @@ ACP `session/request_permission` 的选项集与 Claude Code 权限请求同 Cod
 
 - 新增 ADR-024～027 草案：多 Agent 运行时、按能力降级的会话发现、协议 v2 增量演进、审批归一化与 per-agent 能力探测。
 - Phase 1 落地后 ADR-024/026 转为采纳；token.snapshot 固定 sequence 0 的缺陷已随 v2 修复。
+- Phase 2 落地 AcpAgentRuntime 后 ADR-025/027 转为采纳：session/load 历史重建与 own-sessions 降级、权限选项 fail-closed 映射、原始工具 IO 不出工作站的净化测试进入合并门禁。
 
 - 新增 ADR-024～027 草案：多 Agent 运行时、按能力降级的会话发现、协议 v2 增量演进、审批归一化与 per-agent 能力探测。
 
