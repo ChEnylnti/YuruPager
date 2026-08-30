@@ -4,6 +4,14 @@ import { homedir, hostname, platform, release } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
 
+export interface AgentConfig {
+  /** Agent kind identifier, e.g. "codex". Phase 2 adds "acp" runtimes. */
+  kind: string;
+  command: string;
+  args?: string[];
+  enabled?: boolean;
+}
+
 export interface ConnectorConfigFile {
   version: 1;
   serverUrl: string;
@@ -12,6 +20,35 @@ export interface ConnectorConfigFile {
   workspaceId: string;
   workstationId: string;
   pairedAt: string;
+}
+
+export interface ConnectorConfigFileV2 extends Omit<ConnectorConfigFile, "version"> {
+  version: 2;
+  agents: AgentConfig[];
+}
+
+export type ConnectorConfig = ConnectorConfigFile | ConnectorConfigFileV2;
+
+/** Default Codex agent entry for configs written before agents existed. */
+export function codexAgentConfig(command = "codex"): AgentConfig {
+  return { kind: "codex", command, enabled: true };
+}
+
+/**
+ * Resolves the enabled agent list from either config generation (ADR-024):
+ * v1 configs implicitly carry the single Codex agent; v2 configs carry an
+ * explicit `agents` array whose disabled entries are filtered out.
+ */
+export function resolveConnectorAgents(
+  config: ConnectorConfig,
+  fallbacks: { codexCommand?: string } = {},
+): AgentConfig[] {
+  if (config.version === 2) {
+    return (config.agents ?? [])
+      .filter((agent) => agent.enabled !== false)
+      .map((agent) => ({ ...agent, args: agent.args ?? [] }));
+  }
+  return [{ ...codexAgentConfig(fallbacks.codexCommand ?? "codex") }];
 }
 
 interface PairingResult {
@@ -34,7 +71,7 @@ export interface SetupOptions {
   output?: (message: string) => void;
 }
 
-export async function runSetup(options: SetupOptions): Promise<ConnectorConfigFile> {
+export async function runSetup(options: SetupOptions): Promise<ConnectorConfigFileV2> {
   const serverUrl = normalizeServerUrl(options.serverUrl);
   const pairCode = normalizePairCode(options.pairCode);
   const output = options.output ?? ((message) => process.stdout.write(`${message}\n`));
@@ -85,14 +122,15 @@ export async function runSetup(options: SetupOptions): Promise<ConnectorConfigFi
     throw new Error("服务端未返回完整的工作站凭据");
   }
 
-  const config: ConnectorConfigFile = {
-    version: 1,
+  const config: ConnectorConfigFileV2 = {
+    version: 2,
     serverUrl,
     cloudWebSocketUrl: connectorWebSocketUrl(serverUrl),
     token: result.connectorToken,
     workspaceId: result.workspaceId,
     workstationId: result.workstationId,
     pairedAt: new Date().toISOString(),
+    agents: [codexAgentConfig()],
   };
   const configPath = join(options.dataDirectory, "config.json");
   await writePrivateJson(configPath, config);
@@ -111,22 +149,35 @@ export async function runSetup(options: SetupOptions): Promise<ConnectorConfigFi
   return config;
 }
 
-export async function loadConnectorConfig(path: string): Promise<ConnectorConfigFile | null> {
+export async function loadConnectorConfig(path: string): Promise<ConnectorConfig | null> {
   try {
-    const value = JSON.parse(await readFile(path, "utf8")) as Partial<ConnectorConfigFile>;
-    if (
-      value.version !== 1 || typeof value.serverUrl !== "string" ||
-      typeof value.cloudWebSocketUrl !== "string" || typeof value.token !== "string" ||
-      typeof value.workspaceId !== "string" || typeof value.workstationId !== "string" ||
-      typeof value.pairedAt !== "string"
-    ) {
-      throw new Error("Connector config is invalid");
+    const value = JSON.parse(await readFile(path, "utf8")) as Partial<ConnectorConfig>;
+    const baseValid = typeof value.serverUrl === "string" &&
+      typeof value.cloudWebSocketUrl === "string" && typeof value.token === "string" &&
+      typeof value.workspaceId === "string" && typeof value.workstationId === "string" &&
+      typeof value.pairedAt === "string";
+    if (value.version === 1 && baseValid) {
+      return value as ConnectorConfigFile;
     }
-    return value as ConnectorConfigFile;
+    if (value.version === 2 && baseValid && isAgentList(value.agents)) {
+      return value as ConnectorConfigFileV2;
+    }
+    throw new Error("Connector config is invalid");
   } catch (error) {
     if (isMissingFile(error)) return null;
     throw error;
   }
+}
+
+function isAgentList(value: unknown): value is AgentConfig[] {
+  if (!Array.isArray(value)) return false;
+  return value.every((agent) =>
+    typeof agent === "object" && agent !== null &&
+    typeof (agent as AgentConfig).kind === "string" && (agent as AgentConfig).kind.length > 0 &&
+    typeof (agent as AgentConfig).command === "string" && (agent as AgentConfig).command.length > 0 &&
+    ((agent as AgentConfig).args === undefined || Array.isArray((agent as AgentConfig).args)) &&
+    ((agent as AgentConfig).enabled === undefined || typeof (agent as AgentConfig).enabled === "boolean"),
+  );
 }
 
 export function normalizeServerUrl(value: string): string {

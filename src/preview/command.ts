@@ -2,11 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import type { ConnectorPreviewRoute } from "@yurupager/shared";
 
-import {
-  loadConnectorConfig,
-  previewWebSocketUrl,
-} from "../connector/setup.js";
-import type { ConnectorConfigFile } from "../connector/setup.js";
+import { type ConnectorConfig, loadConnectorConfig, previewWebSocketUrl } from "../connector/setup.js";
 import { PreviewTunnelClient } from "./client.js";
 import { parsePreviewArguments } from "./options.js";
 import { loopbackAuthority, resolvePreviewTarget } from "./target.js";
@@ -83,7 +79,7 @@ export async function startPreview(options: StartPreviewOptions): Promise<Runnin
 }
 
 export function resolvePreviewWebSocketUrl(
-  config: ConnectorConfigFile | null,
+  config: ConnectorConfig | null,
   env: NodeJS.ProcessEnv = process.env,
 ): string | null {
   const explicit = env.YURUPAGER_PREVIEW_WS?.trim();
