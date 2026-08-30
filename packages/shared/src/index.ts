@@ -325,6 +325,8 @@ export interface SessionSummary {
   workstationId: string;
   workstationName: string;
   initiatorName: string | null;
+  /** Owning agent id (protocol v2, ADR-026); legacy consumers default to codex. */
+  agent?: string;
   threadId: string;
   projectKey: string;
   projectName: string;

@@ -178,7 +178,7 @@ export async function getSnapshot(
         );
     const sessions = await client.query<DbRow>(
           `SELECT s.id, s.workspace_id, s.workstation_id, w.name AS workstation_name,
-                  u.display_name AS initiator_name, s.thread_id, s.project_key, s.project_name,
+                  u.display_name AS initiator_name, s.agent, s.thread_id, s.project_key, s.project_name,
                   s.project_path_hint, s.model, s.status, s.sync_state, s.started_at, s.updated_at
              FROM agent_sessions s
              JOIN workstations w ON w.workspace_id = s.workspace_id AND w.id = s.workstation_id
@@ -669,7 +669,7 @@ function mapWorkstation(row: DbRow): WorkstationSummary {
   return { id: stringValue(row.id), workspaceId: stringValue(row.workspace_id), workspaceName: stringValue(row.workspace_name), name: stringValue(row.name), platform: stringValue(row.platform), connectorVersion: stringValue(row.connector_version), status: row.status as WorkstationSummary["status"], lastSeenAt: nullableDate(row.last_seen_at), activeSessionCount: numberValue(row.active_session_count), pendingCount: numberValue(row.pending_count) };
 }
 function mapSession(row: DbRow): SessionSummary {
-  return { id: stringValue(row.id), workspaceId: stringValue(row.workspace_id), workstationId: stringValue(row.workstation_id), workstationName: stringValue(row.workstation_name), initiatorName: nullableString(row.initiator_name), threadId: stringValue(row.thread_id), projectKey: stringValue(row.project_key), projectName: stringValue(row.project_name), projectPath: stringValue(row.project_path_hint), model: stringValue(row.model), status: row.status as SessionSummary["status"], syncState: row.sync_state as SessionSummary["syncState"], startedAt: dateValue(row.started_at), updatedAt: dateValue(row.updated_at) };
+  return { id: stringValue(row.id), workspaceId: stringValue(row.workspace_id), workstationId: stringValue(row.workstation_id), workstationName: stringValue(row.workstation_name), initiatorName: nullableString(row.initiator_name), agent: stringValue(row.agent ?? "codex"), threadId: stringValue(row.thread_id), projectKey: stringValue(row.project_key), projectName: stringValue(row.project_name), projectPath: stringValue(row.project_path_hint), model: stringValue(row.model), status: row.status as SessionSummary["status"], syncState: row.sync_state as SessionSummary["syncState"], startedAt: dateValue(row.started_at), updatedAt: dateValue(row.updated_at) };
 }
 function mapSessionCommand(row: DbRow): SessionCommandSummary {
   return { id: stringValue(row.id), workspaceId: stringValue(row.workspace_id), workstationId: stringValue(row.workstation_id), sessionId: stringValue(row.session_id), actorName: stringValue(row.actor_name), status: row.status as SessionCommandSummary["status"], contentLength: numberValue(row.content_length), attachmentCount: numberValue(row.attachment_count), turnId: nullableString(row.turn_id), errorCode: nullableString(row.error_code), createdAt: dateValue(row.created_at), updatedAt: dateValue(row.updated_at), deliveredAt: nullableDate(row.delivered_at) };

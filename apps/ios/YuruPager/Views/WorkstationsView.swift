@@ -9,7 +9,7 @@ struct WorkstationsView: View {
                 ConnectionBanner()
                 if let snapshot = store.snapshot {
                     if snapshot.workstations.isEmpty {
-                        LoadingOrEmpty(isLoading: false, title: "没有工作站", message: "连接的 Codex 工作站会显示在这里。", systemImage: "desktopcomputer")
+                        LoadingOrEmpty(isLoading: false, title: "没有工作站", message: "连接的工作站会显示在这里。", systemImage: "desktopcomputer")
                     } else {
                         List(snapshot.workstations.sorted { $0.name < $1.name }) { workstation in
                             NavigationLink {

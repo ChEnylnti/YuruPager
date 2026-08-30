@@ -65,6 +65,8 @@ public struct SessionSummary: Codable, Identifiable, Hashable, Sendable {
     public let workstationId: String
     public let workstationName: String
     public let initiatorName: String?
+    /// Owning agent id (protocol v2); older servers omit it, defaulting to Codex.
+    public let agent: String?
     public let threadId: String
     public let projectName: String
     public let projectPath: String

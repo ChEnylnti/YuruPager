@@ -9,7 +9,7 @@ struct SessionsView: View {
                 ConnectionBanner()
                 if let snapshot = store.snapshot {
                     if snapshot.sessions.isEmpty {
-                        LoadingOrEmpty(isLoading: false, title: "没有会话", message: "工作站上报的 Codex 会话会显示在这里。", systemImage: "text.bubble")
+                        LoadingOrEmpty(isLoading: false, title: "没有会话", message: "工作站上报的会话会显示在这里。", systemImage: "text.bubble")
                     } else {
                         List(snapshot.sessions.sorted { $0.updatedAt > $1.updatedAt }) { session in
                             NavigationLink {
@@ -43,7 +43,7 @@ private struct SessionRow: View {
                 Spacer()
                 StatusLabel(text: sessionSyncLabel ?? sessionStatus, systemImage: sessionIcon, color: sessionColor)
             }
-            Text("\(session.projectName) · \(session.workstationName) · \(session.model)")
+            Text("\(session.projectName) · \(session.agent ?? "Codex") · \(session.workstationName) · \(session.model)")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .lineLimit(2)

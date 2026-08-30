@@ -777,3 +777,18 @@ td small { display: block; margin-top: 3px; color: var(--faint); font-size: 8px;
   .spinner { animation: none; }
   .refresh-line span:first-child { animation: none; }
 }
+
+/* Multi-agent: session rows and detail metrics carry the owning agent id. */
+.agent-badge {
+  display: inline-block;
+  padding: 0 6px;
+  margin-right: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 17px;
+  vertical-align: 1px;
+  color: var(--muted);
+  text-transform: none;
+}

@@ -62,12 +62,13 @@ export function SessionComposer({
   const connectorReadyForImages = attachments.length === 0 || workstation?.status === "online";
   const queueForNextTurn = sessionBusy && attachments.length === 0;
   const canSubmit = online && valid && !submitting && connectorReadyForImages && (!sessionBusy || queueForNextTurn);
+  const agentName = session.agent ?? "Codex";
   const statusText = !online
     ? composerText.offlineNotice
     : sessionBusy && attachments.length > 0
-      ? composerText.busyWithImages
+      ? composerText.busyWithImages(agentName)
       : sessionBusy
-        ? composerText.busyTextQueued
+        ? composerText.busyTextQueued(agentName)
       : attachments.length > 0 && workstation?.status !== "online"
         ? composerText.workstationMustBeOnline
         : workstation?.status === "offline"
@@ -214,7 +215,7 @@ export function SessionComposer({
       aria-label={composerText.composerAria}
     >
       <div className="composer-heading">
-        <label htmlFor={`session-message-${session.id}`}>{composerText.sendToCodexLabel}</label>
+        <label htmlFor={`session-message-${session.id}`}>{composerText.sendToAgentLabel(agentName)}</label>
         <span className={contentLength > 8_000 ? "is-over-limit" : ""}>{attachments.length > 0 && composerText.imagesCounter(attachments.length)}{contentLength.toLocaleString("zh-CN")} / 8,000</span>
       </div>
       {attachments.length > 0 && (

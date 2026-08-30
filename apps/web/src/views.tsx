@@ -412,7 +412,7 @@ function projectGroupId(session: SessionSummary): string {
 }
 
 function sessionDisplayTitle(session: SessionSummary, titles: Record<string, string>): string {
-  return titles[session.id] ?? viewsText.codexSessionFallback(session.threadId.slice(0, 8));
+  return titles[session.id] ?? viewsText.sessionTitleFallback(session.agent ?? "Codex", session.threadId.slice(0, 8));
 }
 
 function SessionDetail({ session, title, snapshot, active, online, liveChannel, draft, attachments, onBack, onDraftChange, onAttachmentsChange, onCommandChange, onToast }: {
@@ -534,7 +534,7 @@ function SessionInfoSheet({ session, title, snapshot, requests, commands, tokenT
         <div className="session-info-scroll">
           <dl className="session-info-facts">
             <Metric label={viewsText.metricWorkspace} value={workspaceLabel(snapshot, session.workspaceId)} />
-            <Metric label={viewsText.metricWorkstation} value={session.workstationName} />
+            <Metric label={viewsText.metricAgent} value={session.agent ?? "Codex"} />\n            <Metric label={viewsText.metricWorkstation} value={session.workstationName} />
             <Metric label={viewsText.metricProject} value={session.projectName} />
             <Metric label={viewsText.metricProjectPath} value={session.projectPath} />
         <Metric label={viewsText.metricSessionState} value={sessionSyncStateLabel(session.syncState) ?? sessionStatusLabel(session.status)} />
@@ -700,7 +700,7 @@ function EntitySplit({ title, eyebrow, count, action, children }: { title: strin
 }
 
 function SessionLine({ session }: { session: SessionSummary }) {
-  return <div className="activity-line"><Activity size={17} aria-hidden="true" /><div><strong>{session.projectName}</strong><span>{session.initiatorName ?? viewsText.unknownInitiator} / {session.model}</span></div><span className={`session-state session-${session.status}`}>{sessionSyncStateLabel(session.syncState) ?? sessionStatusLabel(session.status)}</span></div>;
+  return <div className="activity-line"><Activity size={17} aria-hidden="true" /><div><strong>{session.projectName}</strong><span><span className="agent-badge">{session.agent ?? "Codex"}</span> {session.initiatorName ?? viewsText.unknownInitiator} / {session.model}</span></div><span className={`session-state session-${session.status}`}>{sessionSyncStateLabel(session.syncState) ?? sessionStatusLabel(session.status)}</span></div>;
 }
 
 function Metric({ label, value }: { label: string; value: string }) { return <div><dt>{label}</dt><dd title={value}>{value}</dd></div>; }

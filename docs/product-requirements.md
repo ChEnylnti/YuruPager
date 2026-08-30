@@ -354,6 +354,11 @@ User
 ## 12. 后续版本
 
 - 支持 Claude Code、Cursor、Gemini CLI、OpenCode 和其他代理。
+  - 状态：已落地（2026-08-30 多 Agent 运行时）。Connector 通过 AgentRuntime 扇出支持
+    Codex（原生 app-server）、ACP 代理（Gemini CLI、OpenCode、Amp、Crush、Qwen Code、
+    经 claude-agent-acp 的 Claude Code）与 Cursor 原生 stream-json；会话发现按能力降级，
+    审批归一化且未知选项 fail-closed。能力矩阵见 README「Supported agents」；
+    决策记录见 ADR-024～029。Fleet Board（多代理总览看板）仍在本节后续范围。
 - 原生 Android 应用，以及 iOS 的 APNs、Secure Enclave 设备证明和 App Store 分发。
 - Apple Watch 审批。
 - 多代理 Fleet Board。

@@ -34,7 +34,7 @@ public enum Labels {
     public static func command(_ value: SessionCommandStatus) -> String {
         switch value {
         case .queued: "等待工作站"
-        case .delivered: "已交付 Codex"
+        case .delivered: "已交付"
         case .failed: "投递前失败"
         case .sentUnknown: "发送结果未知"
         }

@@ -11,7 +11,7 @@ struct UsageView: View {
                 ConnectionBanner()
                 if let snapshot = store.snapshot {
                     if snapshot.usage.isEmpty {
-                        LoadingOrEmpty(isLoading: false, title: "没有用量记录", message: "Codex 上报的累计用量会显示在这里。", systemImage: "chart.bar")
+                        LoadingOrEmpty(isLoading: false, title: "没有用量记录", message: "工作站上报的累计用量会显示在这里。", systemImage: "chart.bar")
                     } else {
                         List {
                             Section {

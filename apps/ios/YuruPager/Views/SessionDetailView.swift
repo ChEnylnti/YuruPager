@@ -78,6 +78,11 @@ struct SessionDetailView: View {
         store.snapshot?.sessions.first { $0.id == sessionId }
     }
 
+    /// The agent that owns this session; Codex keeps its historical default.
+    private var agentName: String {
+        session?.agent ?? "Codex"
+    }
+
     private func identity(_ session: SessionSummary) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack {
@@ -170,13 +175,13 @@ struct SessionDetailView: View {
         switch entry {
         case .message(let message):
             VStack(alignment: .leading, spacing: 7) {
-                Text(message.role == .user ? "你" : "Codex")
+                Text(message.role == .user ? "你" : agentName)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(message.role == .user ? Color.accentColor : .secondary)
                 if message.role == .assistant {
                     MarkdownMessageView(source: message.text)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .accessibilityLabel("Codex：\(message.text)")
+                        .accessibilityLabel("\(agentName)：\(message.text)")
                 } else {
                     Text(message.text.isEmpty ? " " : message.text)
                         .font(.body)
@@ -217,7 +222,7 @@ struct SessionDetailView: View {
     private func conversationImageRow(_ image: ConversationImage) -> some View {
         let label = imageLabel(image)
         VStack(alignment: .leading, spacing: 7) {
-            Text(image.role == .user ? "你" : "Codex")
+            Text(image.role == .user ? "你" : agentName)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(image.role == .user ? Color.accentColor : .secondary)
             switch image.status {
@@ -378,7 +383,7 @@ struct SessionDetailView: View {
                     .lineLimit(1...5)
                     .textFieldStyle(.roundedBorder)
                     .disabled(sendGate.isSubmitting)
-                    .accessibilityHint("消息由工作站交给 Codex，服务器确认排队后才会清空")
+                    .accessibilityHint("消息由工作站交给 \(agentName)，服务器确认排队后才会清空")
                 Button(action: { send(session) }) {
                     if sendGate.isSubmitting { ProgressView().controlSize(.small) }
                     else { Image(systemName: "paperplane.fill") }
@@ -618,7 +623,7 @@ struct SessionDetailView: View {
     private func imageLabel(_ image: ConversationImage) -> String {
         let images = store.conversation.images.filter { $0.role == image.role }
         let index = (images.firstIndex(where: { $0.id == image.id }) ?? 0) + 1
-        return "\(image.role == .user ? "你发送的" : "Codex 返回的")图片 \(index)"
+        return "\(image.role == .user ? "你发送的" : "\(agentName) 返回的")图片 \(index)"
     }
 
     private func imageErrorLabel(_ code: String) -> String {

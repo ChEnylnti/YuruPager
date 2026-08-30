@@ -693,3 +693,42 @@ notification click -> focus existing client | open PWA
 - 用真实命令、项目名、问题、用户邮箱和长文本哨兵扫描 payload、审计与日志，出现次数为零；payload 只含版本、事件、请求 ID、工作空间 ID 和时间。
 - 推送丢失、浏览器被终止、服务重启或通知在另一设备已处理后，重新打开应用都通过快照得到同一最终状态，不从通知恢复决定。
 - 1440 x 900、390 x 844、360 x 800 和 320 x 568 下菜单不越界、不遮住底部操作区；键盘焦点顺序、Escape 返回、屏幕阅读器名称、44px 触摸目标和 reduced motion 均通过自动化与真实设备检查。
+
+## 14. 多 Agent 审批与会话发现
+
+YuruPager 从“远程 Codex 控制台”升级为多 Agent 监督控制台：Connector 通过
+AgentRuntime 扇出编排多个 agent 运行时（Codex 原生 app-server、ACP 代理、
+Cursor 原生 stream-json），共享同一条云端连接与既有可靠性语义（至少一次投递、
+ACK 重放、`sent_unknown` 门闩）。每个会话由 `agent + sessionId` 唯一归属；
+Web/iOS 快照中的 SessionSummary 携带 `agent` 字段并在会话行与详情中展示徽标。
+
+### 14.1 会话发现按能力降级
+
+- Codex 保持全局 `thread/list` 发现；官方 `thread.name` 仍只经授权内存中转。
+- ACP 代理在声明 `loadSession` 能力时通过 `session/load` 重建历史；未声明时
+  只监督 Connector 自己启动的会话（会话绑定持久化在 Connector SQLite，重连后
+  恢复，历史不可回放并如实呈现）。
+- Cursor 同为 own-sessions：无历史重放，实时时间线可用。
+- 禁止读取 agent 本地磁盘转录文件或内部数据库作为发现手段。列表中会话数量
+  少于本机真实会话数属于降级模式的如实呈现，UI 不做虚假补全。
+
+### 14.2 审批归一化与 fail-closed
+
+- 各 agent 的权限请求统一映射为现有 `request.created`（带 `agent` 与
+  `sessionId` 字段）与 `DecisionInput` 审批流；Web/iOS 的批准、拒绝、回答
+  交互对所有 agent 一致。
+- ACP：仅显式 `allow_once` 选项映射为批准；“always allow”类扩大授权的选项
+  与未知选项一律按拒绝处理；未知的 server→client 请求直接报错。
+- Cursor：`can_use_tool` 控制请求映射为 allow/deny；未知控制子类型返回错误
+  并按拒绝收尾。
+- 工具遥测沿用既有净化边界：原始命令输出、diff、文件内容与工具输入不出工作
+  站，只有有界、去控制字符的 activity 标签进入帧。每个适配器的契约测试包含
+  净化断言（原始 IO 不得出现在任何帧或可靠载荷中）。
+
+### 14.3 能力与用量呈现
+
+- 每 agent 的能力（发现方式、审批选项、用量上报、图片）由 initialize 探测
+  产生，探测失败时该 agent 禁用或降级，不伪装可用。
+- 未上报用量的 agent（如经适配器的 Claude Code 与 ACP 代理）在界面上如实
+  显示用量不可用；Cursor 的 result 用量累计为累积快照，provider 为 `cursor`，
+  无价格目录条目时估算成本留空。任何 agent 都不得构造用量数据。
