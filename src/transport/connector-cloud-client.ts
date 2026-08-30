@@ -111,7 +111,17 @@ export class ConnectorCloudClient {
     return envelope;
   }
 
+  readonly #ephemeralFrameListeners = new Set<(message: ConnectorSessionStreamMessage) => void>();
+
+  /** Observes outbound ephemeral traffic (e.g. the workflow engine captures
+   *  node hand-off text in memory only). */
+  onEphemeralMessage(listener: (message: ConnectorSessionStreamMessage) => void): () => void {
+    this.#ephemeralFrameListeners.add(listener);
+    return () => this.#ephemeralFrameListeners.delete(listener);
+  }
+
   sendEphemeral(message: ConnectorSessionStreamMessage): boolean {
+    for (const listener of this.#ephemeralFrameListeners) listener(message);
     return this.#sendRaw(message);
   }
 

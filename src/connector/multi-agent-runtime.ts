@@ -1,4 +1,6 @@
-import type { AgentRuntime } from "../agents/types.js";
+import type { ConnectorPayload, ConnectorSessionStreamMessage } from "@yurupager/shared";
+
+import type { AgentEventSink, AgentRuntime } from "../agents/types.js";
 
 import type {
   ConnectorCloudClient,
@@ -19,6 +21,19 @@ export interface MultiAgentRuntimeOptions {
  * runtime, which is fail-closed today because only one runtime is enabled —
  * Phase 2 refines decision routing once a second agent reports open requests.
  */
+/** Implements the agent event sink over the single shared cloud client. */
+export class CloudAgentEventSink implements AgentEventSink {
+  constructor(readonly cloud: ConnectorCloudClient) {}
+
+  send(payload: ConnectorPayload, idempotencyKey?: string): void {
+    this.cloud.send(payload, idempotencyKey);
+  }
+
+  sendEphemeral(message: ConnectorSessionStreamMessage): void {
+    this.cloud.sendEphemeral(message);
+  }
+}
+
 export class MultiAgentRuntime {
   readonly #cloud: ConnectorCloudClient;
   readonly #agents = new Map<string, AgentRuntime>();
@@ -38,6 +53,10 @@ export class MultiAgentRuntime {
     }
     this.#defaultAgentId = options.agents[0]?.agentId as string;
     this.#cloud = options.cloud;
+    // Wire the shared event sink so every runtime publishes sessions,
+    // frames, and usage through the fan-out's single cloud connection.
+    const sink = new CloudAgentEventSink(this.#cloud);
+    for (const agent of options.agents) agent.attach(sink);
     this.#cloud.onDecision((decision) => {
       void this.#default().handleDecision(decision);
     });
