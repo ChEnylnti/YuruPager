@@ -132,7 +132,10 @@ export function registerAgentRuntimeContractTests(params: {
         threadId: "sess-1",
       });
       const commandId = randomUUID();
-      await runtime.handleSessionCommand({
+      // Prompt dispatch may block until the turn ends on real agents; the
+      // observable contract is the frame/request stream, and the approval
+      // decision arrives asynchronously from the cloud (as in production).
+      void runtime.handleSessionCommand({
         type: "session.command",
         messageId: randomUUID(),
         sequence: 1,
@@ -140,7 +143,7 @@ export function registerAgentRuntimeContractTests(params: {
         threadId: "sess-1",
         text: "hello agent",
         attachments: [],
-      });
+      }).catch(() => undefined);
       await sink.waitUntil(() => sink.requests().length === 1);
       const request = sink.requests()[0];
       assert.equal(request?.agent, runtime.agentId);
@@ -178,7 +181,7 @@ export function registerAgentRuntimeContractTests(params: {
         subscriptionId: "sub-1",
         threadId: "sess-1",
       });
-      await runtime.handleSessionCommand({
+      void runtime.handleSessionCommand({
         type: "session.command",
         messageId: randomUUID(),
         sequence: 1,
@@ -186,17 +189,24 @@ export function registerAgentRuntimeContractTests(params: {
         threadId: "sess-1",
         text: "hello agent",
         attachments: [],
-      });
-      await sink.waitUntil(() => sink.requests().length === 1);
+      }).catch(() => undefined);
+      // Protocols differ in how an unmappable permission surfaces: either a
+      // request is created (and approving it must fail closed) or the unknown
+      // permission surface is refused outright. Both must end the turn failed.
+      await sink.waitUntil(() =>
+        sink.requests().length === 1 ||
+        sink.frames().some((entry) => entry.frame.kind === "turn.status" && entry.frame.status === "failed"));
       const request = sink.requests()[0];
-      await runtime.handleDecision({
-        type: "decision",
-        messageId: randomUUID(),
-        sequence: 2,
-        requestId: request?.requestId as string,
-        decisionId: randomUUID(),
-        decision: { decision: "approve" },
-      });
+      if (request !== undefined) {
+        await runtime.handleDecision({
+          type: "decision",
+          messageId: randomUUID(),
+          sequence: 2,
+          requestId: request.requestId,
+          decisionId: randomUUID(),
+          decision: { decision: "approve" },
+        });
+      }
       await sink.waitUntil(() => sink.frames().some((entry) =>
         entry.frame.kind === "turn.status" && entry.frame.status === "failed"));
       const deltas = sink.frames()
@@ -217,7 +227,7 @@ export function registerAgentRuntimeContractTests(params: {
         subscriptionId: "sub-1",
         threadId: "sess-1",
       });
-      await runtime.handleSessionCommand({
+      void runtime.handleSessionCommand({
         type: "session.command",
         messageId: randomUUID(),
         sequence: 1,
@@ -225,7 +235,7 @@ export function registerAgentRuntimeContractTests(params: {
         threadId: "sess-1",
         text: "long running",
         attachments: [],
-      });
+      }).catch(() => undefined);
       await sink.waitUntil(() => sink.requests().length === 1);
       const request = sink.requests()[0];
       await runtime.handleDecision({

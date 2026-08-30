@@ -72,7 +72,11 @@ async function runPrompt(sessionId: string): Promise<void> {
     return;
   }
   emitUpdate(sessionId, { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "完成" } });
-  emitUpdate(sessionId, { sessionUpdate: "turn_end", stopReason: "end_turn" });
+  // Keep the turn in flight briefly so supervisor cancels have a real window.
+  setTimeout(() => {
+    if (cancelled) return;
+    emitUpdate(sessionId, { sessionUpdate: "turn_end", stopReason: "end_turn" });
+  }, 400);
 }
 
 const reader = createInterface({ input: process.stdin });
@@ -114,13 +118,19 @@ reader.on("line", (line) => {
       if (scenario === "crash-on-prompt") {
         process.exit(1);
       }
-      void runPrompt(sessionId);
-      send({ jsonrpc: "2.0", id: message.id, result: {} });
+      // Real ACP resolves session/prompt when the turn ends, so the fake
+      // must not answer before runPrompt finishes (contract exercises the
+      // asynchronous approval round-trip against the blocking semantics).
+      void runPrompt(sessionId).then(() => {
+        send({ jsonrpc: "2.0", id: message.id, result: { stopReason: "end_turn" } });
+      });
       return;
     case "session/cancel":
       cancelled = true;
       send({ jsonrpc: "2.0", id: message.id, result: null });
       emitUpdate(sessionId, { sessionUpdate: "turn_end", stopReason: "cancelled" });
+      return;
+    case "session/cancel-never": // unreachable; documents the latch above
       return;
     default:
       if (typeof message.id !== "undefined") {
