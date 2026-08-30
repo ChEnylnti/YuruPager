@@ -70,7 +70,7 @@ test("ACP runtime never fabricates usage snapshots", async () => {
       subscriptionId: "sub-usage",
       threadId: "sess-usage",
     });
-    await runtime.handleSessionCommand({
+    void runtime.handleSessionCommand({
       type: "session.command",
       messageId: "msg-usage-1",
       sequence: 1,
@@ -78,6 +78,15 @@ test("ACP runtime never fabricates usage snapshots", async () => {
       threadId: "sess-usage",
       text: "usage probe",
       attachments: [],
+    }).catch(() => undefined);
+    await sink.waitUntil(() => sink.requests().length === 1);
+    await runtime.handleDecision({
+      type: "decision",
+      messageId: "decision-usage-1",
+      sequence: 2,
+      requestId: sink.requests()[0]?.requestId as string,
+      decisionId: "decision-usage-1",
+      decision: { decision: "approve" },
     });
     await sink.waitUntil(() => sink.requests().length === 1);
     const request = sink.requests()[0];
