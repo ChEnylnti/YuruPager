@@ -6,6 +6,9 @@ export interface NdjsonJsonRpcConnectionOptions {
   args?: string[];
   cwd?: string;
   requestTimeoutMs?: number;
+  /** "jsonrpc" (default) sends {jsonrpc:"2.0", id, …}; "bare" sends {id, …}
+   *  without the jsonrpc key (ZCode Protocol rejects it). */
+  envelope?: "jsonrpc" | "bare";
   onNotification(method: string, params: unknown): void;
   /** Server→client request; the returned value becomes the JSON-RPC result. */
   onRequest(method: string, params: unknown): Promise<unknown>;
@@ -62,7 +65,8 @@ export class NdjsonJsonRpcConnection {
       return Promise.reject(new Error(`JSON-RPC connection is not running: ${method}`));
     }
     const id = this.#nextId++;
-    const message = JSON.stringify({ jsonrpc: "2.0", id, method, params });
+    const envelope = this.#options.envelope === "bare" ? { id, method, params } : { jsonrpc: "2.0", id, method, params };
+    const message = JSON.stringify(envelope);
     return new Promise((resolve, reject) => {
       const timeoutMs = this.#options.requestTimeoutMs ?? 30_000;
       const timer = setTimeout(() => {
@@ -87,11 +91,12 @@ export class NdjsonJsonRpcConnection {
   }
 
   respond(id: unknown, result: unknown): void {
-    this.#write({ jsonrpc: "2.0", id, result });
+    this.#write(this.#options.envelope === "bare" ? { id, result } : { jsonrpc: "2.0", id, result });
   }
 
   respondError(id: unknown, code: number, message: string): void {
-    this.#write({ jsonrpc: "2.0", id, error: { code, message } });
+    const error = { code, message };
+    this.#write(this.#options.envelope === "bare" ? { id, error } : { jsonrpc: "2.0", id, error });
   }
 
   async stop(): Promise<void> {

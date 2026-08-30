@@ -16,6 +16,7 @@ import { ConnectorCloudClient } from "../transport/connector-cloud-client.js";
 import { SqliteMessageStore } from "../transport/sqlite-message-store.js";
 import { AcpAgentRuntime } from "../agents/acp/acp-agent-runtime.js";
 import { CursorAgentRuntime } from "../agents/cursor/cursor-agent-runtime.js";
+import { ZcodeAgentRuntime } from "../agents/zcode/zcode-agent-runtime.js";
 import { resolveAgentPreset } from "../agents/agent-presets.js";
 import { MultiAgentRuntime } from "./multi-agent-runtime.js";
 import { ConnectorRuntime } from "./runtime.js";
@@ -147,6 +148,24 @@ async function startConnector(): Promise<void> {
         sessionStorePath: join(dataDirectory, "agent-sessions.sqlite"),
       });
       runtimes.push(acp);
+      continue;
+    }
+    if (agent.kind === "zcode" || resolveAgentPreset(agent.kind)?.runtime === "zcode") {
+      const preset = resolveAgentPreset(agent.kind);
+      const command = agent.command.length > 0
+        ? agent.command
+        : process.env.ZCODE_COMMAND ?? preset?.command ?? "zcode";
+      const mode = process.env.ZCODE_MODE === "edit" ? "edit" : "build";
+      runtimes.push(new ZcodeAgentRuntime({
+        agentId: agent.kind,
+        command,
+        args: agent.args ?? [],
+        cwd: projectPath,
+        projectName: projectBasename,
+        projectPath,
+        sessionStorePath: join(dataDirectory, "agent-sessions.sqlite"),
+        mode,
+      }));
       continue;
     }
     if (agent.kind === "cursor") {

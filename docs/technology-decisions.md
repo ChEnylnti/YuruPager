@@ -1204,7 +1204,7 @@ Cursor CLI 无 ACP 模式，原生无头为 `--output-format stream-json` 的行
 
 ## ADR-030：ZCode 原生 app-server 适配器
 
-- 状态：草案（spike 探测 `zcode app-server` 后回填协议形状定稿）
+- 状态：采纳（2026-08-30 spike 实测 zcode 0.16.5 回填；turn 级事件形状待真实模型 turn 人工复核）
 - 决策日期：2026-08-30
 
 ### 背景与约束
@@ -1221,7 +1221,20 @@ ZCode 0.16.5 提供 `zcode app-server` 子命令（官方描述 "Run the ZCode P
 - 采用 A。协议形状（initialize 能力字段、会话列表/读取/恢复、prompt 与增量事件、权限请求与应答方法、用量事件、取消）由 `spike:zcode-app-server` 实测回填本 ADR。
 - 监督模式强制 `--mode build`（默认）或用户显式配置 `edit`；`yolo`/`plan` 不得作为监督模式的启动参数（fail-closed）。
 - 版本门沿用 version-gate 模式：0.16.x 白名单；能力协商失败或版本不匹配 → 该 agent 降级 disabled 并在工作站状态如实呈现。
-- 会话发现按 spike 结论选择 app-server 列表/读取方法；若协议只支持单会话恢复，则按 ADR-025 降级为 own-sessions（会话绑定存 Connector SQLite）。
+- 会话发现：`session/list` 提供**全局发现**（spike 实测 29 个会话，字段 sessionId `sess_`、mode、status、sessionKind、title），映射到 SessionUpsert；官方 title 仅按 Codex thread.name 同等规则经授权内存中转。
+
+### spike 实测协议形状（zcode 0.16.5，`spike:zcode-app-server` 可复跑）
+
+- 信封与分帧：ndjson 行式；客户端请求 `{id, method, params}`（**无 `jsonrpc` 键**——发送 JSON-RPC 2.0 信封会被 zod 拒绝）；响应 `{id, result|error}`；server→client 请求同为 `{id, method, params}`，用 `{id, result}` 应答；通知 `{method, params}`。
+- 错误码沿用 JSON-RPC 风格：-32601 method not found、-32602 invalid params（ZodError 明细在 data）、-32004 session not active、-32031 runtime model unavailable、-32022 client request timeout。
+- `session/list {}` → 全局发现。
+- `session/resume {sessionId}` → server→client `session/requestRuntimePreferences`（scope: `runtime-materialization`、`user-execution`；result 需要 `nativeSearchEnhancementsEnabled: boolean`），可能追加 `interaction/requestOfficialMcpAuthHeaders`；随后返回 `{messages: [{info: {messageId, agent, model, metadata…}, …}]}` 转录重放。`session/read` 需要激活会话。
+- `session/send {sessionId, content}` 驱动 turn（旧会话因模型下线报 -32031，方法面已确认）。
+- `session/usage {sessionId}` → 累计用量（totalTokens/inputTokens/outputTokens/reasoningTokens/cacheCreation/ReadTokens/modelRequestCount）。
+- `session/subscribe {sessionId, deliveryKind: "desktop-continuous"|"web-remote-replayable"}`；`session/setMode {sessionId, mode: plan|build|edit|yolo|auto}`；`session/stop`。
+- 审批：`interaction/requestPermission`（server→client；result 形状未经真实 turn 验证——适配器按 `{decision: "allow"|"deny"}` 应答并在人工清单中复核）；提问：`interaction/requestUserInput`（YuruPager 不支持，拒绝）。
+- 通知：`state.updated`、`process/mcpTelemetry`、`process/resourceSample` 等；turn 级增量方法名来自 bundle 字面量（`session/event`/`session/events`）+ 运行观察，未经真实模型 turn 确认——适配器对未知通知一律忽略（fail-closed），会话内容以 `session/messages` 轮询差分呈现。
+- 无 model provider 配置（`~/.zcode/cli/config.json`，由 `zcode login` 写入）时 `session/create`/turn 失败：适配器必须把探测/激活失败如实降级 disabled。
 
 ### 已知风险
 

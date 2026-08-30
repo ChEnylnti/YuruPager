@@ -6,12 +6,15 @@
  * onto the ACP runtime with its own stable agentId.
  */
 export interface AgentPreset {
-  runtime: "acp" | "cursor";
+  runtime: "acp" | "cursor" | "zcode";
   command: string;
   args: string[];
 }
 
 export const AGENT_PRESETS: Record<string, AgentPreset> = {
+  // ZCode rides its native ZCode Protocol app-server (ADR-030); supervision
+  // forces --mode build unless the operator configures edit.
+  zcode: { runtime: "zcode", command: "zcode", args: [] },
   // Claude Code rides the claude-agent-acp adapter (ADR-028: adapter path
   // adopted; the native stream-json path stays a conditional fallback).
   "claude-code": { runtime: "acp", command: "claude-agent-acp", args: [] },

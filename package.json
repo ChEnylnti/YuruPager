@@ -35,6 +35,7 @@
     "spike:handshake": "npm run build && node dist/src/spike/handshake.js",
     "spike:acp-handshake": "npm run build && node dist/src/spike/acp-handshake.js",
     "spike:gemini-e2e": "npm run build && node dist/src/spike/gemini-e2e.js",
+    "spike:zcode-app-server": "npm run build && node dist/src/spike/zcode-app-server.js",
     "spike:approval": "npm run build && node dist/src/spike/approval.js",
     "spike:question": "npm run build && node dist/src/spike/question.js",
     "spike:shared-session": "npm run build && node dist/src/spike/shared-session.js",
