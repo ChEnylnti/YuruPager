@@ -51,6 +51,8 @@
 | ADR-027 | 审批归一化到 RequestContext/DecisionInput，未知选项 fail-closed；version-gate 泛化为 per-agent 能力探测 | Phase 2 采纳 |
 | ADR-028 | Claude Code 经 claude-agent-acp 适配器接入（ACP 路径），原生 stream-json 适配器为条件性后备 | 草案（真实 CLI 验证清单通过后转采纳） |
 | ADR-029 | Cursor 经原生 stream-json 适配器接入（事件协议非 JSON-RPC） | Phase 3 采纳 |
+| ADR-030 | ZCode 经原生 `zcode app-server`（ZCode Protocol stdio JSON-RPC）接入，监督模式强制 build/edit，版本门 0.16.x | 草案（spike 回填后定稿） |
+| ADR-031 | DeepSeek Harness（dsh）经插件桥/api-gateway 接入，pre-step 审批门 + session/event 增量 | 草案 |
 
 ## 3. Codex 能力证据基线
 
@@ -1199,6 +1201,36 @@ Cursor CLI 无 ACP 模式，原生无头为 `--output-format stream-json` 的行
 ### 验证方式
 
 - fake-cursor-agent 契约套件 + 净化/用量测试；真实 CLI 人工清单。
+
+## ADR-030：ZCode 原生 app-server 适配器
+
+- 状态：草案（spike 探测 `zcode app-server` 后回填协议形状定稿）
+- 决策日期：2026-08-30
+
+### 背景与约束
+
+ZCode 0.16.5 提供 `zcode app-server` 子命令（官方描述 "Run the ZCode Protocol stdio app server"），与 Codex 的 `codex app-server --stdio` 同构，stdio JSON-RPC。无头模式有 `--prompt/-p --print`、`--json`、`--resume <sess_…>`、`-c --continue` 等参数。关键风险：`--prompt` 默认 `--mode yolo`——在 yolo 下权限请求根本不会出现，监督形同虚设。会话持久化在 `~/.zcode/cli/rollout/model-io-sess_*.jsonl` 与 `~/.zcode/cli/db/db.sqlite`，YuruPager 不得读取这些文件作为发现手段（ADR-025）。
+
+### 候选方案
+
+- A：原生 app-server 适配器（本 ADR）：镜像 `src/codex/` 的客户端/domain/适配层结构，接入 AgentRuntime。
+- B：经 ACP——ZCode 无 ACP 模式，不成立。
+
+### 选择结果
+
+- 采用 A。协议形状（initialize 能力字段、会话列表/读取/恢复、prompt 与增量事件、权限请求与应答方法、用量事件、取消）由 `spike:zcode-app-server` 实测回填本 ADR。
+- 监督模式强制 `--mode build`（默认）或用户显式配置 `edit`；`yolo`/`plan` 不得作为监督模式的启动参数（fail-closed）。
+- 版本门沿用 version-gate 模式：0.16.x 白名单；能力协商失败或版本不匹配 → 该 agent 降级 disabled 并在工作站状态如实呈现。
+- 会话发现按 spike 结论选择 app-server 列表/读取方法；若协议只支持单会话恢复，则按 ADR-025 降级为 own-sessions（会话绑定存 Connector SQLite）。
+
+### 已知风险
+
+- ZCode Protocol 未承诺稳定性；任何探测失败都必须降级 disabled，不得静默。
+- rollout/model-io 转录内容（原始命令、工具 IO、diff、路径）不得进入任何 relay frame、SQLite outbox 或服务端；净化断言进入契约测试。
+
+### 验证方式
+
+- fake-zcode-app-server 契约套件（握手、发现、prompt、增量、审批往返、崩溃重连）+ 净化/用量测试；真实 CLI spike 人工清单。
 
 ## 4. 实施顺序
 
