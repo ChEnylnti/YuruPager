@@ -45,6 +45,7 @@ import {
   type RemoteSessionCommand,
 } from "../transport/connector-cloud-client.js";
 import { enforceCodexVersion } from "./version-gate.js";
+import type { AgentCapabilities, AgentDiscoveredSessionSnapshot, AgentRuntime } from "../agents/types.js";
 
 interface PendingCodexRequest {
   adapted: AdaptedRequest;
@@ -108,6 +109,11 @@ export interface ConnectorRuntimeOptions {
   media?: SqliteLocalImageStore;
   codexCommand?: string;
   skipVersionGate?: boolean;
+  /**
+   * When false the runtime does not subscribe to the shared cloud client
+   * itself; the multi-agent orchestrator routes callbacks instead (ADR-024).
+   */
+  registerCloudHandlers?: boolean;
   workstationName: string;
   platform: string;
   connectorVersion: string;
@@ -130,7 +136,7 @@ export interface DiscoveredCodexSessionSnapshot {
   titles: ConnectorSessionTitle[];
 }
 
-export class ConnectorRuntime {
+export class ConnectorRuntime implements AgentRuntime {
   readonly #agentId: string;
   readonly #cloud: ConnectorCloudClient;
   readonly #codex: CodexAppServerClient;
@@ -168,19 +174,17 @@ export class ConnectorRuntime {
     this.#commands = options.commands;
     this.#decisions = options.decisions;
     this.#media = options.media;
-    this.#cloud.onDecision((decision) => this.#handleDecision(decision));
-    this.#cloud.onCommand((command) => this.#handleSessionCommand(command));
-    this.#cloud.onSessionStream((control) => this.#handleSessionStream(control));
-    if (this.#media !== undefined) {
-      this.#cloud.onAttachment((control) => this.#handleAttachment(control));
-    }
-    this.#cloud.onStatus((online) => {
-      if (online) queueMicrotask(() => {
-        this.#sessionSignatures.clear();
-        void this.#refreshSessions().catch(() => undefined);
-        this.#sendSessionTitles();
+    if (this.#options.registerCloudHandlers !== false) {
+      this.#cloud.onDecision((decision) => this.#handleDecision(decision));
+      this.#cloud.onCommand((command) => this.#handleSessionCommand(command));
+      this.#cloud.onSessionStream((control) => this.#handleSessionStream(control));
+      if (this.#media !== undefined) {
+        this.#cloud.onAttachment((control) => this.#handleAttachment(control));
+      }
+      this.#cloud.onStatus((online) => {
+        if (online) this.handleCloudOnline();
       });
-    });
+    }
     this.#codex.setServerRequestHandler((request) => this.#handleCodexRequest(request));
     this.#codex.onNotification(async (notification) => {
       await this.#handleCodexNotification(notification);
@@ -252,6 +256,45 @@ export class ConnectorRuntime {
     await Promise.all([...turnClientStops, this.#codex.stop(), this.#cloud.stop()]);
     this.#remoteCommandQueues.clear();
     this.#remoteCommandJobs.clear();
+  }
+
+  async capabilities(): Promise<AgentCapabilities> {
+    return {
+      agentId: this.#agentId,
+      displayName: "Codex",
+      discovery: "global",
+      questions: true,
+      usageReporting: true,
+      imageAttachments: true,
+    };
+  }
+
+  async listSessions(): Promise<AgentDiscoveredSessionSnapshot | null> {
+    return discoverCodexSessionSnapshot(this.#codex, this.#options);
+  }
+
+  handleDecision(remote: RemoteDecision): Promise<void> {
+    return this.#handleDecision(remote);
+  }
+
+  handleSessionCommand(remote: RemoteSessionCommand): Promise<void> {
+    return this.#handleSessionCommand(remote);
+  }
+
+  handleSessionStream(control: RemoteSessionStreamControl): Promise<void> {
+    return this.#handleSessionStream(control);
+  }
+
+  handleAttachment(control: RemoteAttachmentControl): Promise<void> {
+    return this.#handleAttachment(control);
+  }
+
+  handleCloudOnline(): void {
+    queueMicrotask(() => {
+      this.#sessionSignatures.clear();
+      void this.#refreshSessions().catch(() => undefined);
+      this.#sendSessionTitles();
+    });
   }
 
   markCodexResponseWritten(request: CodexServerRequest): void {
