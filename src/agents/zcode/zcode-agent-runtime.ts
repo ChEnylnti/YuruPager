@@ -13,7 +13,10 @@ import type {
   AgentCapabilities,
   AgentDiscoveredSessionSnapshot,
   AgentEventSink,
+  AgentSessionOptions,
+  AgentStartSessionOptions,
 } from "../types.js";
+import { assertSessionOptionsSupported } from "../session-options.js";
 import { AgentSessionStore } from "../agent-session-store.js";
 import type {
   RemoteDecision,
@@ -114,7 +117,33 @@ export class ZcodeAgentRuntime {
       questions: false,
       usageReporting: true,
       imageAttachments: false,
+      // session/setModel exists but the app-server exposes no selectable
+      // catalogue over the wire; requested options fail closed (ADR-034).
+      models: [],
     };
+  }
+
+  async startSession(options: AgentStartSessionOptions): Promise<{ sessionId: string }> {
+    assertSessionOptionsSupported(this.agentId, options, []);
+    const connection = this.#requireConnection();
+    const created = await connection.request("session/create", {
+      workspace: { workspaceKey: this.#options.projectPath, workspacePath: this.#options.projectPath },
+    }) as { sessionId?: unknown } | null;
+    const sessionId = created?.sessionId;
+    if (typeof sessionId !== "string" || sessionId.length === 0) {
+      throw new Error(`ZCode session/create returned no session id for ${this.agentId}`);
+    }
+    const mode = this.#options.mode ?? "build";
+    if (!SUPERVISED_MODES.has(mode)) throw new Error(`Supervision mode ${mode} is not allowed`);
+    await connection.request("session/setMode", { sessionId, mode });
+    this.#activeSessions.add(sessionId);
+    this.#store?.bind(sessionId, sessionId);
+    this.#publishSession(sessionId, "running");
+    // Fire-and-forget: turn completion arrives via state.updated.
+    void connection.request("session/send", { sessionId, content: options.initialPrompt })
+      .then(() => this.#refreshUsage(sessionId, "turn-start"))
+      .catch(() => undefined);
+    return { sessionId };
   }
 
   async #runVersionProbe(): Promise<string> {
@@ -228,7 +257,8 @@ export class ZcodeAgentRuntime {
     this.#connection?.respond(pending.rpcId, { decision });
   }
 
-  async handleSessionCommand(remote: RemoteSessionCommand): Promise<void> {
+  async handleSessionCommand(remote: RemoteSessionCommand, sessionOptions?: AgentSessionOptions): Promise<void> {
+    assertSessionOptionsSupported(this.agentId, sessionOptions, []);
     const connection = this.#requireConnection();
     const sessionId = remote.threadId;
     await this.#ensureActive(sessionId);
@@ -470,6 +500,23 @@ export class ZcodeAgentRuntime {
       observedAt: new Date().toISOString(),
     };
     this.#sink?.send(payload, `usage:${sessionId}:${sequence}`);
+  }
+
+  #publishSession(sessionId: string, status: SessionSummary["status"]): void {
+    const payload: SessionUpsertPayloadLike = {
+      type: "session.upsert",
+      threadId: sessionId,
+      agent: this.agentId,
+      sessionId,
+      projectKey: createProjectKey(this.#options.projectPath),
+      projectName: this.#options.projectName,
+      projectPath: this.#options.projectPath,
+      model: "zcode",
+      status,
+      syncState: "live",
+      updatedAt: new Date().toISOString(),
+    };
+    this.#sink?.send(payload, `session:${sessionId}:${status}`);
   }
 
   #sendFrame(threadId: string, frame: SessionStreamFrame): void {

@@ -45,7 +45,16 @@ import {
   type RemoteSessionCommand,
 } from "../transport/connector-cloud-client.js";
 import { enforceCodexVersion } from "./version-gate.js";
-import type { AgentCapabilities, AgentDiscoveredSessionSnapshot, AgentEventSink, AgentRuntime } from "../agents/types.js";
+import type {
+  AgentCapabilities,
+  AgentDiscoveredSessionSnapshot,
+  AgentEventSink,
+  AgentModelOption,
+  AgentRuntime,
+  AgentSessionOptions,
+  AgentStartSessionOptions,
+} from "../agents/types.js";
+import { assertSessionOptionsSupported } from "../agents/session-options.js";
 
 interface PendingCodexRequest {
   adapted: AdaptedRequest;
@@ -84,6 +93,7 @@ interface RemoteTurnClient {
 
 interface QueuedRemoteSessionCommand {
   remote: RemoteSessionCommand;
+  sessionOptions: AgentSessionOptions | undefined;
   payloadHash: string;
   promise: Promise<void>;
   resolve(): void;
@@ -122,6 +132,7 @@ export interface ConnectorRuntimeOptions {
   model: string;
   initiatedByEmail?: string;
   requestTimeoutMs?: number;
+  modelCatalogueLimit?: number;
   sessionRefreshMs?: number;
   sessionStreamPollMs?: number;
   turnClientReleaseDelayMs?: number;
@@ -158,6 +169,7 @@ export class ConnectorRuntime implements AgentRuntime {
   #sessionRefreshTimer: NodeJS.Timeout | undefined;
   #sessionRefreshInFlight: Promise<void> | undefined;
   readonly #tokenSequences = new Map<string, number>();
+  #modelCatalogue: AgentModelOption[] = [];
   #stopping = false;
 
   /** Agent identity for protocol v2 payload stamping. */
@@ -219,7 +231,11 @@ export class ConnectorRuntime implements AgentRuntime {
     if (initialized.platformOs.length === 0) {
       throw new Error("Codex app-server capability probe returned no platform");
     }
-    await this.#codex.request("model/list", { limit: 1, includeHidden: false });
+    const modelListing = await this.#codex.request("model/list", {
+      limit: this.#options.modelCatalogueLimit ?? 25,
+      includeHidden: false,
+    }) as { data?: unknown; models?: unknown } | null;
+    this.#modelCatalogue = extractCodexModels(modelListing);
     await this.#refreshSessions();
     const refreshMs = this.#options.sessionRefreshMs ?? 30_000;
     if (refreshMs > 0) {
@@ -271,7 +287,59 @@ export class ConnectorRuntime implements AgentRuntime {
       questions: true,
       usageReporting: true,
       imageAttachments: true,
+      models: this.#modelCatalogue,
     };
+  }
+
+  async startSession(options: AgentStartSessionOptions): Promise<{ sessionId: string }> {
+    assertSessionOptionsSupported(this.#agentId, options, this.#modelCatalogue);
+    const connection = this.#codex;
+    const captured = await this.#captureNewThread(options);
+    const payload: SessionUpsertPayload = {
+      type: "session.upsert",
+      threadId: captured,
+      agent: this.#agentId,
+      sessionId: captured,
+      projectKey: projectKey(normalize(this.#options.projectPath)),
+      projectName: projectNameFromPath(normalize(this.#options.projectPath), this.#options.projectName),
+      projectPath: projectPathHint(normalize(this.#options.projectPath)),
+      model: options.model ?? this.#options.model,
+      status: "running",
+      syncState: "live",
+      updatedAt: new Date().toISOString(),
+    };
+    if (this.#options.initiatedByEmail !== undefined) payload.initiatedByEmail = this.#options.initiatedByEmail;
+    this.#cloud.send(payload, `session:${captured}`);
+    return { sessionId: captured };
+  }
+
+  /** Dispatches turn/start without a thread id and captures the new thread. */
+  async #captureNewThread(options: AgentStartSessionOptions): Promise<string> {
+    const input: Array<{ type: "text"; text: string }> = [{ type: "text", text: options.initialPrompt }];
+    let capture: ((threadId: string) => void) | undefined;
+    const captured = new Promise<string>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("Codex did not announce a new thread for startSession")), 30_000);
+      capture = (threadId) => {
+        clearTimeout(timer);
+        resolve(threadId);
+      };
+    });
+    const removeHandler = this.#codex.onNotification((notification) => {
+      if (notification.method !== "thread/started" || !isRecord(notification.params)) return;
+      const thread = notification.params.thread;
+      if (isRecord(thread) && typeof thread.id === "string") capture?.(thread.id);
+    });
+    try {
+      await this.#codex.request("turn/start", {
+        input,
+        ...(options.model === undefined ? {} : { model: options.model }),
+        ...(options.reasoningEffort === undefined ? {} : { model_reasoning_effort: options.reasoningEffort }),
+      });
+      return await captured;
+    } finally {
+      removeHandler();
+      capture = undefined;
+    }
   }
 
   async listSessions(): Promise<AgentDiscoveredSessionSnapshot | null> {
@@ -282,8 +350,8 @@ export class ConnectorRuntime implements AgentRuntime {
     return this.#handleDecision(remote);
   }
 
-  handleSessionCommand(remote: RemoteSessionCommand): Promise<void> {
-    return this.#handleSessionCommand(remote);
+  handleSessionCommand(remote: RemoteSessionCommand, options?: AgentSessionOptions): Promise<void> {
+    return this.#handleSessionCommand(remote, options);
   }
 
   handleSessionStream(control: RemoteSessionStreamControl): Promise<void> {
@@ -373,8 +441,9 @@ export class ConnectorRuntime implements AgentRuntime {
     }
   }
 
-  async #handleSessionCommand(remote: RemoteSessionCommand): Promise<void> {
-    const payloadHash = sessionCommandPayloadHash(remote);
+  async #handleSessionCommand(remote: RemoteSessionCommand, options?: AgentSessionOptions): Promise<void> {
+    assertSessionOptionsSupported(this.#agentId, options, this.#modelCatalogue);
+    const payloadHash = sessionCommandPayloadHash(remote, options);
     const currentJob = this.#remoteCommandJobs.get(remote.commandId);
     if (currentJob !== undefined) {
       if (currentJob.remote.threadId !== remote.threadId || currentJob.payloadHash !== payloadHash) {
@@ -396,7 +465,7 @@ export class ConnectorRuntime implements AgentRuntime {
     }
 
     if (this.#stopping) throw new Error("Connector is stopping");
-    const job = this.#createQueuedCommand(remote, payloadHash);
+    const job = this.#createQueuedCommand(remote, options, payloadHash);
     this.#remoteCommandJobs.set(remote.commandId, job);
     const queue = this.#threadCommandQueue(remote.threadId);
     queue.pending.push(job);
@@ -404,7 +473,7 @@ export class ConnectorRuntime implements AgentRuntime {
     return job.promise;
   }
 
-  #createQueuedCommand(remote: RemoteSessionCommand, payloadHash: string): QueuedRemoteSessionCommand {
+  #createQueuedCommand(remote: RemoteSessionCommand, sessionOptions: AgentSessionOptions | undefined, payloadHash: string): QueuedRemoteSessionCommand {
     let resolvePromise: (() => void) | undefined;
     let rejectPromise: ((error: Error) => void) | undefined;
     const promise = new Promise<void>((resolve, reject) => {
@@ -413,6 +482,7 @@ export class ConnectorRuntime implements AgentRuntime {
     });
     return {
       remote,
+      sessionOptions,
       payloadHash,
       promise,
       resolve: () => resolvePromise?.(),
@@ -476,6 +546,7 @@ export class ConnectorRuntime implements AgentRuntime {
           onTurnStartAttempted: () => { turnClient.turnStartAttempted = true; },
           onTurnStarted: (turnId) => { turnClient.turnId = turnId; },
         },
+        job.sessionOptions,
       );
       this.#reportSessionCommand(result);
 
@@ -1100,6 +1171,25 @@ function threadListNextCursor(value: unknown): string | null {
   return value.nextCursor;
 }
 
+function extractCodexModels(listing: { data?: unknown; models?: unknown } | null | undefined): AgentModelOption[] {
+  const items = Array.isArray(listing?.data)
+    ? listing.data
+    : Array.isArray(listing?.models)
+      ? listing.models
+      : [];
+  const models: AgentModelOption[] = [];
+  for (const item of items) {
+    if (!isRecord(item)) continue;
+    const id = typeof item.id === "string" ? item.id
+      : typeof item.model === "string" ? item.model
+        : typeof item.slug === "string" ? item.slug : null;
+    if (id === null || id.length === 0) continue;
+    const displayName = typeof item.displayName === "string" && item.displayName.length > 0 ? item.displayName : id;
+    models.push({ id, displayName, reasoningEfforts: ["minimal", "low", "medium", "high"] });
+  }
+  return models;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -1225,6 +1315,7 @@ export async function dispatchSessionCommand(
     onTurnStartAttempted?(): void;
     onTurnStarted?(turnId: string): void;
   },
+  sessionOptions?: AgentSessionOptions,
 ): Promise<CommandDeliveryRecord> {
   const attachments = remote.attachments ?? [];
   const payloadHash = sessionCommandPayloadHash(remote);
@@ -1278,6 +1369,8 @@ export async function dispatchSessionCommand(
     const result = await codex.request("turn/start", {
       threadId: remote.threadId,
       input,
+      ...(sessionOptions?.model === undefined ? {} : { model: sessionOptions.model }),
+      ...(sessionOptions?.reasoningEffort === undefined ? {} : { model_reasoning_effort: sessionOptions.reasoningEffort }),
     });
     const turnId = readTurnId(result);
     hooks?.onTurnStarted?.(turnId);
@@ -1289,11 +1382,13 @@ export async function dispatchSessionCommand(
   }
 }
 
-function sessionCommandPayloadHash(remote: RemoteSessionCommand): string {
+function sessionCommandPayloadHash(remote: RemoteSessionCommand, options?: AgentSessionOptions): string {
   return createHash("sha256").update(JSON.stringify({
     threadId: remote.threadId,
     text: remote.text,
     attachments: remote.attachments ?? [],
+    model: options?.model ?? null,
+    reasoningEffort: options?.reasoningEffort ?? null,
   })).digest("hex");
 }
 

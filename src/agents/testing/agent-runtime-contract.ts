@@ -259,6 +259,30 @@ export function registerAgentRuntimeContractTests(params: {
     }
   });
 
+  test("startSession dispatches the initial prompt and fails closed on unknown options", async () => {
+    const { runtime, sink } = await Promise.resolve(createRuntime("standard"));
+    try {
+      await runtime.start();
+      const capabilities = await runtime.capabilities();
+      assert.ok(Array.isArray(capabilities.models));
+      if (runtime.startSession === undefined) return; // optional per ADR-034
+      const unsupported = capabilities.models.length > 0
+        ? `${capabilities.models[0]?.id ?? "model"}--does-not-exist`
+        : "unsupported-model";
+      await assert.rejects(
+        runtime.startSession({ initialPrompt: "hello", model: unsupported }),
+        (error: unknown) => error instanceof Error,
+      );
+      const { sessionId } = await runtime.startSession({ initialPrompt: "workflow kick-off" });
+      assert.ok(sessionId.length > 0);
+      await sink.waitUntil(() => sink
+        .sent("session.upsert")
+        .some((payload) => payload.sessionId === sessionId || payload.threadId === sessionId));
+    } finally {
+      await runtime.stop();
+    }
+  });
+
   test("agent crash fails closed and a replacement runtime connects", async () => {
     const { runtime, sink } = await Promise.resolve(createRuntime("crash-on-prompt"));
     try {

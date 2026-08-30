@@ -65,6 +65,13 @@ reader.on("line", (line) => {
   const id = message.id;
   debug(`<- ${JSON.stringify(message).slice(0, 160)}`);
   switch (method) {
+    case "session/create": {
+      const createdId = "sess_fake_1";
+      activeSessionId = createdId;
+      send({ id: "srv-pref-c1", method: "session/requestRuntimePreferences", params: { sessionId: createdId, scope: "runtime-materialization" } });
+      send({ id, result: { sessionId: createdId } });
+      return;
+    }
     case "session/list":
       send({
         id,

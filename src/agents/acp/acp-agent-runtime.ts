@@ -13,7 +13,10 @@ import type {
   AgentDiscoveredSessionSnapshot,
   AgentEventSink,
   AgentRuntime,
+  AgentSessionOptions,
+  AgentStartSessionOptions,
 } from "../types.js";
+import { assertSessionOptionsSupported } from "../session-options.js";
 import { NdjsonJsonRpcConnection } from "./json-rpc-connection.js";
 import { AgentSessionStore } from "../agent-session-store.js";
 import type {
@@ -99,7 +102,36 @@ export class AcpAgentRuntime implements AgentRuntime {
       questions: false,
       usageReporting: false,
       imageAttachments: false,
+      // The base ACP dialect carries no model selection; requested options
+      // fail closed until an agent negotiates a model capability.
+      models: [],
     };
+  }
+
+  async startSession(options: AgentStartSessionOptions): Promise<{ sessionId: string }> {
+    assertSessionOptionsSupported(this.agentId, options, []);
+    const connection = this.#requireConnection();
+    const result = await connection.request("session/new", {
+      ...(this.#options.cwd === undefined ? {} : { cwd: this.#options.cwd }),
+      mcpServers: [],
+    }) as { sessionId?: unknown } | null;
+    const acpSessionId = result?.sessionId;
+    if (typeof acpSessionId !== "string" || acpSessionId.length === 0) {
+      throw new Error(`ACP agent returned no session id for ${this.agentId}`);
+    }
+    const threadId = `acp-${randomUUID().slice(0, 8)}`;
+    this.#bindSession(threadId, acpSessionId);
+    this.#turns.set(acpSessionId, {
+      turnId: `turn-start-${threadId.slice(4, 12)}`,
+      messageId: `msg-start-${threadId.slice(4, 12)}`,
+      started: false,
+    });
+    // Fire-and-forget: the initial prompt resolves at turn end on real agents.
+    void connection.request("session/prompt", {
+      sessionId: acpSessionId,
+      prompt: [{ type: "text", text: options.initialPrompt }],
+    }).catch(() => undefined);
+    return { sessionId: threadId };
   }
 
   async start(): Promise<void> {
@@ -163,7 +195,8 @@ export class AcpAgentRuntime implements AgentRuntime {
     }
   }
 
-  async handleSessionCommand(remote: RemoteSessionCommand): Promise<void> {
+  async handleSessionCommand(remote: RemoteSessionCommand, sessionOptions?: AgentSessionOptions): Promise<void> {
+    assertSessionOptionsSupported(this.agentId, sessionOptions, []);
     const session = await this.#ensureSession(remote.threadId);
     const turnId = `turn-${remote.commandId.slice(0, 8)}`;
     this.#turns.set(session.acpSessionId, {

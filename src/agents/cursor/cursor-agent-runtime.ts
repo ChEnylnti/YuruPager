@@ -14,7 +14,10 @@ import type {
   AgentDiscoveredSessionSnapshot,
   AgentEventSink,
   AgentRuntime,
+  AgentSessionOptions,
+  AgentStartSessionOptions,
 } from "../types.js";
+import { assertSessionOptionsSupported } from "../session-options.js";
 import { AgentSessionStore } from "../agent-session-store.js";
 import type { RemoteDecision, RemoteSessionCommand, RemoteSessionStreamControl } from "../../transport/connector-cloud-client.js";
 
@@ -93,7 +96,29 @@ export class CursorAgentRuntime implements AgentRuntime {
       questions: false,
       usageReporting: true,
       imageAttachments: false,
+      // The stream-json init event reports a model but no selectable
+      // catalogue; requested options fail closed (ADR-034).
+      models: [],
     };
+  }
+
+  async startSession(options: AgentStartSessionOptions): Promise<{ sessionId: string }> {
+    assertSessionOptionsSupported(this.agentId, options, []);
+    if (!this.#running || this.#native === undefined) {
+      throw new Error(`Cursor runtime ${this.agentId} is not running`);
+    }
+    if (this.#boundThreadId !== undefined) {
+      throw new Error(`Cursor runtime ${this.agentId} already supervises a session`);
+    }
+    const threadId = `cursor-${randomUUID().slice(0, 8)}`;
+    this.#bindOrRequire(threadId);
+    // Fire-and-forget: the result event closes the turn asynchronously.
+    this.#write({
+      type: "user",
+      message: { role: "user", content: [{ type: "text", text: options.initialPrompt }] },
+      session_id: this.#native.cursorSessionId,
+    });
+    return { sessionId: threadId };
   }
 
   async start(): Promise<void> {
@@ -163,7 +188,8 @@ export class CursorAgentRuntime implements AgentRuntime {
     }
   }
 
-  async handleSessionCommand(remote: RemoteSessionCommand): Promise<void> {
+  async handleSessionCommand(remote: RemoteSessionCommand, sessionOptions?: AgentSessionOptions): Promise<void> {
+    assertSessionOptionsSupported(this.agentId, sessionOptions, []);
     if (!this.#running || this.#child === undefined) {
       throw new Error(`Cursor runtime ${this.agentId} is not running`);
     }

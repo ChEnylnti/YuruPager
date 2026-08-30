@@ -3,6 +3,7 @@ import type {
   ConnectorSessionStreamMessage,
   ConnectorSessionTitle,
   SessionStreamFrame,
+  WorkflowReasoningEffort,
 } from "@yurupager/shared";
 
 import type {
@@ -21,6 +22,12 @@ export type AgentDiscoveryMode =
   /** Only sessions the Connector itself started can be supervised. */
   | "own-sessions";
 
+export interface AgentModelOption {
+  id: string;
+  displayName: string;
+  reasoningEfforts: WorkflowReasoningEffort[];
+}
+
 export interface AgentCapabilities {
   agentId: string;
   displayName: string;
@@ -31,6 +38,21 @@ export interface AgentCapabilities {
   usageReporting: boolean;
   /** The agent accepts local image attachments. */
   imageAttachments: boolean;
+  /**
+   * Model catalogue for session options (ADR-034). Empty means only the
+   * agent default exists; requested models fail closed in that case.
+   */
+  models: AgentModelOption[];
+}
+
+export interface AgentSessionOptions {
+  model?: string;
+  reasoningEffort?: WorkflowReasoningEffort;
+}
+
+export interface AgentStartSessionOptions extends AgentSessionOptions {
+  initialPrompt: string;
+  cwd?: string;
 }
 
 export interface AgentDiscoveredSessionSnapshot {
@@ -80,7 +102,14 @@ export interface AgentRuntime {
    */
   listSessions(): Promise<AgentDiscoveredSessionSnapshot | null>;
   handleDecision(remote: RemoteDecision): Promise<void>;
-  handleSessionCommand(remote: RemoteSessionCommand): Promise<void>;
+  handleSessionCommand(remote: RemoteSessionCommand, options?: AgentSessionOptions): Promise<void>;
+  /**
+   * Opens a new agent session and dispatches the initial prompt without
+   * waiting for the turn to finish (ADR-034). Optional: runtimes without
+   * session creation fail closed when the workflow engine asks for one.
+   * A requested model/effort outside the capability catalogue rejects.
+   */
+  startSession?(options: AgentStartSessionOptions): Promise<{ sessionId: string }>;
   handleSessionStream(control: RemoteSessionStreamControl): Promise<void>;
   handleAttachment?(control: RemoteAttachmentControl): Promise<void>;
   /** Optional cooperative cancel of the agent's active turn (ADR-024). */
