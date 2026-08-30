@@ -357,6 +357,8 @@ export interface RequestContext {
   cwd?: string;
   reason?: string;
   grantRoot?: string;
+  /** Agent-specific approval option identifiers (protocol v2, ADR-027). */
+  availableDecisions?: string[];
   requestedPermissions?: {
     network?: boolean;
     fileSystem?: Array<{ access: string; path: string }>;

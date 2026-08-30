@@ -45,7 +45,7 @@ import {
   type RemoteSessionCommand,
 } from "../transport/connector-cloud-client.js";
 import { enforceCodexVersion } from "./version-gate.js";
-import type { AgentCapabilities, AgentDiscoveredSessionSnapshot, AgentRuntime } from "../agents/types.js";
+import type { AgentCapabilities, AgentDiscoveredSessionSnapshot, AgentEventSink, AgentRuntime } from "../agents/types.js";
 
 interface PendingCodexRequest {
   adapted: AdaptedRequest;
@@ -256,6 +256,11 @@ export class ConnectorRuntime implements AgentRuntime {
     await Promise.all([...turnClientStops, this.#codex.stop(), this.#cloud.stop()]);
     this.#remoteCommandQueues.clear();
     this.#remoteCommandJobs.clear();
+  }
+
+  attach(_sink: AgentEventSink): void {
+    // Legacy Codex path publishes through the cloud client directly; the
+    // orchestrator-mode sink is adopted when this runtime is generalised.
   }
 
   async capabilities(): Promise<AgentCapabilities> {
