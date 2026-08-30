@@ -1,6 +1,6 @@
 # YuruPager 技术选型与架构决策
 
-- 文档版本：v1.6
+- 文档版本：v1.7
 - 状态：关键 Spike 完成，进入 MVP 实施
 - 更新日期：2026-08-30
 - 关联需求：[产品需求文档](./product-requirements.md)
@@ -45,6 +45,10 @@
 | ADR-021 | PWA Web Push 使用 VAPID、账户级端点与最小路由通知，快照仍是事实来源 | Alpha 采纳 |
 | ADR-022 | ESLint（flat config）+ typescript-eslint 作为工程质量门禁 linter | MVP 采纳，warn 级起步 |
 | ADR-023 | 数据库 Schema 采用有序幂等版本化迁移，自研编号 SQL runner + 旧库补登记 | MVP 采纳 |
+| ADR-024 | Connector 采用多 Agent 运行时（AgentRuntime 接口 + 扇出编排，共享云端连接） | 草案（Phase 1 落地后转采纳） |
+| ADR-025 | 会话发现按 agent 能力降级，禁止读取 agent 本地转录文件 | 草案 |
+| ADR-026 | Connector 协议 v2 增量演进：agent 字段 + sessionId 别名，不做破坏性改名 | 草案（Phase 1 落地后转采纳） |
+| ADR-027 | 审批归一化到 RequestContext/DecisionInput，未知选项 fail-closed；version-gate 泛化为 per-agent 能力探测 | 草案 |
 
 ## 3. Codex 能力证据基线
 
@@ -1055,6 +1059,108 @@ Alpha 期间的 schema 是单个 `apps/server/db/001_initial.sql`（709 行）�
 - 出现需要数据回填（非 DDL）的迁移时，评估批处理与限流方案。
 - 迁移数量超过约 20 或明确需要 down-migration 时，重新评估 node-pg-migrate 等工具选型。
 
+## ADR-024：多 Agent 运行时（AgentRuntime 接口 + 扇出编排）
+
+- 状态：草案（Phase 1 实施后复核转采纳）
+- 决策日期：2026-08-30
+
+### 背景与约束
+
+YuruPager 现为单一 Codex 控制台：`ConnectorRuntime` 直接持有 `CodexAppServerClient`，会话发现、审批、流订阅全部内联。产品要支持 ACP（Agent Client Protocol）及原生 CLI 的多类编码 agent，同时安全不变量（正文/图片不持久化、高危 fail-closed）与已部署 Codex Alpha 的兼容性不可破坏。
+
+### 候选方案
+
+- A：从 `ConnectorRuntime` 现有消费面提取 `AgentRuntime` 接口（initialize/能力探测、listSessions 可为空、spawnOrAttach、subscribe、sendPrompt、respondToApproval、cancel 可选、usageStream 可选）；Codex 为第一个实现（行为保持重构），ACP 运行时为第二个实现，覆盖全部 ACP agent；仅当 ACP 路径有损时才新增原生适配器。
+- B：每个 agent 一套独立 runtime 与独立云端连接。连接数、审批仲裁与断线恢复语义都要按连接复制，成本高且与“工作站在服务器看来是一台设备”的模型冲突。
+
+### 选择结果
+
+- 选择 A。Connector 编排层变为 `{agentId → AgentRuntime}` 扇出：共享同一 `ConnectorCloudClient`（同一 WSS、同一 outbox/ACK/replay），按会话归属路由云端回调。
+- 每 agent 一份能力档案（发现方式、审批映射、用量上报、图片能力），由 ADR-027 的能力探测产生。
+- 现有 SQLite journal/ledger/decision 数据无 agent 维度仍沿用：Phase 1 仅 codex 一个运行时，多 agent 持久化键在 Phase 2 按需加列。
+
+### 选择理由
+
+- ACP 已是事实标准（Gemini CLI 原生、Claude Code/OpenCode/Amp/Crush/Qwen 等原生或经适配器），一个 ACP 运行时即可覆盖绝大多数目标；接口先行可让 Codex 重构与 ACP 接入解耦。
+- 共享云端连接保留既有的 at-least-once、`sent_unknown`、ACK 重放语义，不复制可靠性层。
+
+### 已知风险
+
+- 云端回调（decision/command/stream/attachment）现按 threadId 寻址，扇出后需要 threadId→agent 归属表；归属未知时 fail-closed（路由给默认 agent 仅限单运行时阶段）。
+- 多运行时共享 `media` 图片存储时 transferId/uploadId 空间需保持全局唯一（现用 UUID，天然满足）。
+
+### 验证方式
+
+- Phase 1：全部既有 Connector 测试（78 项）行为不变；fake-agent 契约测试台（Phase 1 第 5 项）作为后续所有运行时的合并门禁。
+
+### 重新评估条件
+
+- ACP 运行时接入后若发现接口形状与 ACP 生命周期冲突（如 load/resume 语义），允许增补接口方法但不得破坏 Codex 实现。
+
+## ADR-025：会话发现按 agent 能力降级
+
+- 状态：草案
+- 决策日期：2026-08-30
+
+### 背景与选择
+
+Codex 提供 `thread/list` 全局发现；ACP 的 `session/list` 仍是 RFD 未普及，`session/load`（重放历史）与 `session/resume`（不重放）已定稿。因此发现策略按能力降级：
+
+1. Codex：`thread/list`（现状保持）。
+2. ACP agent 且声明 `loadSession` 能力：Connector 自己启动的会话 id 持久化在 Connector SQLite，重连后 `session/load` 重建历史；服务器端列表只含 Connector 已知会话。
+3. ACP agent 无 `loadSession`：仅监督 Connector 自己启动的会话（`session/new` 记录 + `session/resume`），重连后历史不可回放，显示为历史不可用。
+
+禁止读取 agent 本地磁盘转录文件、解析其内部数据库等侵入式发现；这类路径既是隐私边界也是版本脆弱点。
+
+### 已知风险
+
+- 服务器端“工作站会话列表”在降级模式下只反映 Connector 已知会话，用户可能发现列表少于本机真实会话数；UI 需按 agent 展示发现能力说明。
+
+### 验证方式
+
+- fake-agent 契约测试覆盖 loadSession 有/无两种降级路径；Codex 路径由既有测试守护。
+
+## ADR-026：协议 v2 增量演进（agent 字段 + sessionId 别名）
+
+- 状态：草案（Phase 1 实施后复核转采纳）
+- 决策日期：2026-08-30
+
+### 背景与选择
+
+会话标识全链路命名 `threadId` 是 Codex 词汇泄漏；协议无 agent 判别字段。一次性破坏性改名会迫使 iOS/Web/服务器同步发版，且破坏已部署 Alpha。
+
+### 选择结果
+
+- `session.upsert`、`session.inventory`、`request.created`、`token.snapshot` 四类 ConnectorPayload 增加 `agent` 字段（缺省按 `codex` 解释）与 `sessionId` 别名（与 `threadId` 同值）；`session.inventory.threadIds` 同步增加并行 `sessionIds`。
+- 旧字段保留读、新字段可缺省；服务器在入站规范化层统一回填，下游存储以 `agent + sessionId` 为准。
+- 修复 `token.snapshot` 恒 `sequence: 0` 的缺陷：Connector 按线程维护单调递增序列，否则 `UNIQUE(workspace_id, workstation_id, connection_epoch, source_sequence)` 每连接周期只落一条快照、rollup `latest_sequence` 永不前进。
+
+### 已知风险
+
+- 双字段并存期间，消费端必须以“agent 缺省=codex、sessionId 缺省=threadId”的规则解释，且不得同时发送冲突值。
+
+### 验证方式
+
+- 协议测试断言新字段向后兼容；服务端集成测试覆盖缺省回填。
+
+## ADR-027：审批归一化与 per-agent 能力探测
+
+- 状态：草案
+- 决策日期：2026-08-30
+
+### 背景与选择
+
+ACP `session/request_permission` 的选项集与 Claude Code 权限请求同 Codex 的 approve/deny/answer 不同构；现版 `version-gate` 是 Codex 专属 semver 门（0.145–0.149）。
+
+### 选择结果
+
+- 各 agent 的审批请求统一映射到现有 `RequestContext`/`DecisionInput`：可以映射为 approve/deny 的选项照映射执行；无法安全映射的选项（例如“本次会话始终允许”）一律按 deny 处理并标注为高危 fail-closed，不静默放行。
+- `version-gate` 泛化为 per-agent 能力探测：每个 AgentRuntime 在 initialize 阶段产出能力档案（协议版本、发现方式、审批选项集、用量上报、图片能力），探测失败 → 该 agent 进入禁用/降级状态，不得伪装可用。
+
+### 验证方式
+
+- fake-agent 契约测试包含未知权限选项场景，断言 fail-closed；Codex version-gate 既有测试保持。
+
 ## 4. 实施顺序
 
 1. 固化 YuruPager Domain Event、Approval Request、Delivery Journal 和 Token Usage Schema。
@@ -1083,6 +1189,10 @@ Alpha 期间的 schema 是单个 `apps/server/db/001_initial.sql`（709 行）�
 - 任何降低默认拒绝、租户隔离或审计完整性的变更必须经过安全评审。
 
 ## 7. 版本记录
+
+### v1.7（2026-08-30）
+
+- 新增 ADR-024～027 草案：多 Agent 运行时、按能力降级的会话发现、协议 v2 增量演进、审批归一化与 per-agent 能力探测。
 
 ### v1.6（2026-08-30）
 
