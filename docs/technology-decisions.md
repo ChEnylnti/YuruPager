@@ -44,6 +44,7 @@
 | ADR-020 | 开发预览使用独立 HTTPS origin、独立易失 WSS 与本机显式端口授权 | Alpha 采纳 |
 | ADR-021 | PWA Web Push 使用 VAPID、账户级端点与最小路由通知，快照仍是事实来源 | Alpha 采纳 |
 | ADR-022 | ESLint（flat config）+ typescript-eslint 作为工程质量门禁 linter | MVP 采纳，warn 级起步 |
+| ADR-023 | 数据库 Schema 采用有序幂等版本化迁移，自研编号 SQL runner + 旧库补登记 | MVP 采纳 |
 
 ## 3. Codex 能力证据基线
 
@@ -1011,6 +1012,49 @@ Alpha 使用标准 Web Push + VAPID。每个浏览器 profile 的订阅属于当
 - 引入类型感知 lint 或 react-hooks 插件时，重新评估 lint 时长与告警预算。
 - 若未来引入 Biome 仅作 formatter 与 ESLint 并存，需重新评估规则重叠与执行顺序。
 
+## ADR-023：数据库 Schema 采用有序幂等的版本化迁移（自研编号 SQL runner）
+
+- 状态：MVP 采纳
+- 决策日期：2026-08-30
+
+### 背景与约束
+
+Alpha 期间的 schema 是单个 `apps/server/db/001_initial.sql`（709 行），服务启动时整体执行。这无法表达后续增量变更、没有执行历史，也无法判断线上库已经具备哪些变更。约束：线上 Alpha 库已由 001 整体初始化，升级必须平滑；遇到线上 schema 不确定时执行“只加不改不删”兼容策略；ADR-011 保持 SQL-first 数据访问。
+
+### 候选方案
+
+- node-pg-migrate：成熟框架，但迁移以 JS 对象表达，与现有纯 SQL 基线衔接需要重写 001，并引入新依赖。
+- 自研编号 SQL runner：迁移是纯 `.sql` 文件，按文件名序号排序执行，`schema_migrations` 表记录历史，advisory lock 串行化并发启动。
+
+### 选择结果
+
+- `apps/server/db/migrations/` 存放 `NNNN_name.sql`；`0001_initial_alpha_schema.sql` 即原 Alpha 基线，内容逐字保留。
+- `apps/server/src/migrations.ts`：启动时 `CREATE TABLE IF NOT EXISTS schema_migrations`，按序执行未应用的迁移，每个迁移与其历史记录在同一事务内提交，失败整体回滚且不留记录；`pg_advisory_lock`（集群级）串行化并发启动。
+- 旧库识别：`schema_migrations` 为空且 `public.app_users` 已存在时，仅登记 0001 不重新执行（对应前版本化时代整体初始化的库），随后只应用 0002 及之后的增量。
+- `migrateAndSeed` 改为 `runMigrations` + `seedAlpha`，对 `app.ts` 与测试的调用签名不变；Dockerfile 已打包 `apps/server/db`，镜像内迁移路径无需调整。
+- 迁移测试 `apps/server/test/migrations.test.ts` 覆盖：新库一键初始化与幂等重跑、旧库补登记不重跑、按序应用 / 失败回滚 / 断点续跑。
+
+### 选择理由
+
+- 保持 SQL-first：迁移即 SQL，可直接在 psql 中审查、手工执行与比对。
+- 零新依赖，与既有 admin/app/connector 三连接池模型直接兼容。
+- 基线整体保留为 0001，旧库无需猜测已应用哪部分 schema，天然满足“只加不改不删”。
+
+### 已知风险
+
+- 迁移不自动生成 down 脚本；回滚依赖前向修复迁移。
+- 0001 含 `CREATE ROLE`（集群级对象），依赖其 `IF NOT EXISTS` 守卫；多集群部署需运维保证单一迁移入口。
+
+### 验证方式
+
+- `npm test --workspace @yurupager/server`（含 3 个迁移测试）全绿。
+- e2e webServer 启动时对既有本地库执行 `runMigrations`，验证旧库登记路径；CI Node job 覆盖新库初始化路径。
+
+### 重新评估条件
+
+- 出现需要数据回填（非 DDL）的迁移时，评估批处理与限流方案。
+- 迁移数量超过约 20 或明确需要 down-migration 时，重新评估 node-pg-migrate 等工具选型。
+
 ## 4. 实施顺序
 
 1. 固化 YuruPager Domain Event、Approval Request、Delivery Journal 和 Token Usage Schema。
@@ -1043,6 +1087,7 @@ Alpha 使用标准 Web Push + VAPID。每个浏览器 profile 的订阅属于当
 ### v1.6（2026-08-30）
 
 - 新增 ADR-022：工程质量门禁采用 ESLint（flat config）+ typescript-eslint，warn 级接入并修完全部 error。
+- 新增 ADR-023：数据库 Schema 采用有序幂等的版本化迁移，基线登记为 0001，旧库补登记不重跑。
 - 根 `npm run lint` 纳入 ESLint，与各 workspace 的 `tsc --noEmit` 并行构成完整门禁。
 
 ### v1.5（2026-08-16）

@@ -68,7 +68,7 @@ code.
 │   ├── transport/        # Connector cloud transport (WSS client, message store)
 │   └── spike/            # Re-runnable live-verification scripts (kept as evidence)
 ├── apps/
-│   ├── server/           # Fastify 5 REST/WSS API, PostgreSQL (RLS) schema in db/
+│   ├── server/           # Fastify 5 REST/WSS API, PostgreSQL (RLS) with versioned SQL migrations in db/migrations/
 │   ├── web/              # React 19 + Vite 7 desktop console / mobile PWA, Playwright e2e
 │   └── ios/              # SwiftUI client (Xcode project) + YuruPagerCore Swift package
 ├── packages/shared/      # Shared protocol types (@yurupager/shared)

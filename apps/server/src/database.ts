@@ -1,10 +1,9 @@
-import { readFile } from "node:fs/promises";
 import { scryptSync } from "node:crypto";
-import { fileURLToPath } from "node:url";
 
 import { Pool, type PoolClient, type QueryResultRow } from "pg";
 
 import type { Config } from "./config.js";
+import { runMigrations } from "./migrations.js";
 
 export interface Database {
   admin: Pool;
@@ -21,11 +20,7 @@ export function createDatabase(config: Config): Database {
 }
 
 export async function migrateAndSeed(database: Database, alphaPassword = "alpha-demo"): Promise<void> {
-  const migrationPath = fileURLToPath(
-    new URL("../db/001_initial.sql", import.meta.url),
-  );
-  const migration = await readFile(migrationPath, "utf8");
-  await database.admin.query(migration);
+  await runMigrations(database.admin);
   await seedAlpha(database.admin, alphaPassword);
 }
 
