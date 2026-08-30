@@ -99,6 +99,8 @@ interface RemoteThreadCommandQueue {
 
 export interface ConnectorRuntimeOptions {
   cloud: ConnectorCloudClient;
+  /** Protocol v2 agent identity stamped onto outbound session payloads. */
+  agentId?: string;
   codex: CodexAppServerClient;
   journal: SqliteApprovalJournal;
   commands: SqliteCommandJournal;
@@ -129,6 +131,7 @@ export interface DiscoveredCodexSessionSnapshot {
 }
 
 export class ConnectorRuntime {
+  readonly #agentId: string;
   readonly #cloud: ConnectorCloudClient;
   readonly #codex: CodexAppServerClient;
   readonly #journal: SqliteApprovalJournal;
@@ -148,9 +151,16 @@ export class ConnectorRuntime {
   readonly #remoteCommandJobs = new Map<string, QueuedRemoteSessionCommand>();
   #sessionRefreshTimer: NodeJS.Timeout | undefined;
   #sessionRefreshInFlight: Promise<void> | undefined;
+  readonly #tokenSequences = new Map<string, number>();
   #stopping = false;
 
+  /** Agent identity for protocol v2 payload stamping. */
+  get agentId(): string {
+    return this.#agentId;
+  }
+
   constructor(options: ConnectorRuntimeOptions) {
+    this.#agentId = options.agentId ?? "codex";
     this.#options = options;
     this.#cloud = options.cloud;
     this.#codex = options.codex;
@@ -268,7 +278,7 @@ export class ConnectorRuntime {
     }
     const domain = adapted.domain;
     this.#sendSession(domain);
-    this.#cloud.send(toRequestPayload(domain), `request:${domain.requestId}`);
+    this.#cloud.send(toRequestPayload(domain, this.#agentId), `request:${domain.requestId}`);
     return new Promise<unknown>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.#pending.delete(domain.requestId);
@@ -605,7 +615,12 @@ export class ConnectorRuntime {
     const event = adaptNotification(notification);
     if (event === null) return null;
     if (event.type === "token.usage.updated") {
-      this.#cloud.send(toTokenPayload(event, this.#options.model), tokenEventId(event));
+      const sequence = (this.#tokenSequences.get(event.threadId) ?? 0) + 1;
+      this.#tokenSequences.set(event.threadId, sequence);
+      this.#cloud.send(
+        toTokenPayload(event, this.#options.model, this.#agentId, sequence),
+        tokenEventId(event),
+      );
       return event;
     }
     if (event.type === "turn.completed") {
@@ -732,6 +747,8 @@ export class ConnectorRuntime {
         type: "session.inventory",
         inventoryId: randomUUID(),
         threadIds: [...currentThreadIds],
+        agent: this.#agentId,
+        sessionIds: [...currentThreadIds],
       }, `session-inventory:${randomUUID()}`);
       this.#sessionTitles.clear();
       for (const title of snapshot.titles) this.#sessionTitles.set(title.threadId, title.title);
@@ -779,6 +796,8 @@ export class ConnectorRuntime {
     const payload: SessionUpsertPayload = {
       type: "session.upsert",
       threadId: domain.threadId,
+      agent: this.#agentId,
+      sessionId: domain.threadId,
       turnId: domain.turnId,
       projectKey: discovered?.projectKey ?? projectKey(fallbackPath),
       projectName: discovered?.projectName ?? projectNameFromPath(fallbackPath, this.#options.projectName),
@@ -887,14 +906,14 @@ export class ConnectorRuntime {
 
 export async function discoverCodexSessions(
   codex: Pick<CodexAppServerClient, "request">,
-  options: Pick<ConnectorRuntimeOptions, "model" | "initiatedByEmail">,
+  options: Pick<ConnectorRuntimeOptions, "model" | "initiatedByEmail" | "agentId">,
 ): Promise<SessionUpsertPayload[]> {
   return (await discoverCodexSessionSnapshot(codex, options)).sessions;
 }
 
 export async function discoverCodexSessionSnapshot(
   codex: Pick<CodexAppServerClient, "request">,
-  options: Pick<ConnectorRuntimeOptions, "model" | "initiatedByEmail">,
+  options: Pick<ConnectorRuntimeOptions, "model" | "initiatedByEmail" | "agentId">,
 ): Promise<DiscoveredCodexSessionSnapshot> {
   const sessions = new Map<string, SessionUpsertPayload>();
   const titles = new Map<string, string>();
@@ -949,7 +968,7 @@ export function sanitizeSessionTitle(value: unknown): string | null {
 
 export async function sessionPayloadsFromThreadList(
   value: unknown,
-  options: Pick<ConnectorRuntimeOptions, "model" | "initiatedByEmail">,
+  options: Pick<ConnectorRuntimeOptions, "model" | "initiatedByEmail" | "agentId">,
   canonicalize: (path: string) => Promise<string> = canonicalProjectPath,
 ): Promise<SessionUpsertPayload[]> {
   if (!isRecord(value) || !Array.isArray(value.data)) {
@@ -963,6 +982,8 @@ export async function sessionPayloadsFromThreadList(
     const payload: SessionUpsertPayload = {
       type: "session.upsert",
       threadId: candidate.id,
+      agent: options.agentId ?? "codex",
+      sessionId: candidate.id,
       projectKey: projectKey(canonicalPath),
       projectName: projectNameFromPath(canonicalPath),
       projectPath: projectPathHint(canonicalPath),
@@ -1035,12 +1056,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function toRequestPayload(domain: DomainRequest): ConnectorPayload {
+function toRequestPayload(domain: DomainRequest, agentId: string): ConnectorPayload {
   if (domain.type === "approval.requested") {
     return {
       type: "request.created",
       requestId: domain.requestId,
       threadId: domain.threadId,
+      agent: agentId,
+      sessionId: domain.threadId,
       turnId: domain.turnId,
       itemId: domain.itemId,
       kind: "approval",
@@ -1056,6 +1079,8 @@ function toRequestPayload(domain: DomainRequest): ConnectorPayload {
     type: "request.created",
     requestId: domain.requestId,
     threadId: domain.threadId,
+    agent: agentId,
+    sessionId: domain.threadId,
     turnId: domain.turnId,
     itemId: domain.itemId,
     kind: "question",
@@ -1068,13 +1093,21 @@ function toRequestPayload(domain: DomainRequest): ConnectorPayload {
   };
 }
 
-function toTokenPayload(event: TokenUsageUpdatedEvent, model: string): ConnectorPayload {
+function toTokenPayload(
+  event: TokenUsageUpdatedEvent,
+  model: string,
+  agentId: string,
+  sequence: number,
+): ConnectorPayload {
   return {
     type: "token.snapshot",
     eventId: tokenEventId(event),
-    sequence: 0,
+    sequence,
     threadId: event.threadId,
+    agent: agentId,
+    sessionId: event.threadId,
     turnId: event.turnId,
+    provider: "openai",
     model,
     inputTokens: event.usage.total.inputTokens,
     cachedInputTokens: event.usage.total.cachedInputTokens,

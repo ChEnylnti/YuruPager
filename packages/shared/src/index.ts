@@ -652,6 +652,10 @@ export type ConnectorPayload =
   | {
       type: "session.upsert";
       threadId: string;
+      /** Protocol v2: agent that owns the session (defaults to "codex"). */
+      agent?: string;
+      /** Protocol v2: agent-neutral alias mirroring threadId. */
+      sessionId?: string;
       turnId?: string;
       projectKey: string;
       projectName: string;
@@ -667,11 +671,19 @@ export type ConnectorPayload =
       type: "session.inventory";
       inventoryId: string;
       threadIds: string[];
+      /** Protocol v2: agent that owns the inventoried sessions. */
+      agent?: string;
+      /** Protocol v2: agent-neutral aliases mirroring threadIds. */
+      sessionIds?: string[];
     }
   | {
       type: "request.created";
       requestId: string;
       threadId: string;
+      /** Protocol v2: agent that raised the request (defaults to "codex"). */
+      agent?: string;
+      /** Protocol v2: agent-neutral alias mirroring threadId. */
+      sessionId?: string;
       turnId: string;
       itemId: string;
       kind: RequestKind;
@@ -687,7 +699,13 @@ export type ConnectorPayload =
       eventId: string;
       sequence: number;
       threadId: string;
+      /** Protocol v2: agent that reported the usage (defaults to "codex"). */
+      agent?: string;
+      /** Protocol v2: agent-neutral alias mirroring threadId. */
+      sessionId?: string;
       turnId: string;
+      /** Protocol v2: pricing provider carried from the adapter usage event (defaults to "openai"). */
+      provider?: string;
       model: string;
       inputTokens: number;
       cachedInputTokens: number;
