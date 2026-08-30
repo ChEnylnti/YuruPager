@@ -21,7 +21,7 @@ export type DeliveryStatus = (typeof deliveryStatuses)[number];
 export type RiskLevel = "low" | "medium" | "high";
 export type WorkspaceRole = "owner" | "admin" | "member";
 export type WorkspaceKind = "personal" | "company" | "team";
-export type RequestKind = "approval" | "question";
+export type RequestKind = "approval" | "question" | "workflow_gate";
 export type SessionCommandStatus = "queued" | "delivered" | "failed" | "sent_unknown";
 export type SessionSyncState = "live" | "historical" | "stale";
 export const sessionImageMimeTypes = ["image/png", "image/jpeg", "image/webp"] as const;
@@ -646,6 +646,84 @@ export interface DecisionResult {
   replayed: boolean;
 }
 
+// ---------------------------------------------------------------------------
+// Planning workflows (ADR-032..036). Hand-off text and agent output are
+// session content: they never enter these payloads — status messages carry
+// machine-readable metadata only.
+// ---------------------------------------------------------------------------
+
+export type WorkflowReasoningEffort = "minimal" | "low" | "medium" | "high";
+
+export interface WorkflowModelOption {
+  id: string;
+  displayName: string;
+  reasoningEfforts: WorkflowReasoningEffort[];
+}
+
+export type WorkflowConditionKind = "agent_confirm" | "criteria_check" | "manual_gate";
+export type WorkflowFailureStrategy = "stop" | "manual_intervention";
+
+export interface WorkflowNodeCondition {
+  kind: WorkflowConditionKind;
+  /** criteria_check only: the user-written criteria text. */
+  criteriaText?: string;
+  maxRetries: number;
+  backoffMs: number;
+}
+
+export interface WorkflowNodeDefinition {
+  id: string;
+  agentKind: string;
+  model?: string;
+  reasoningEffort?: WorkflowReasoningEffort;
+  /** Task template rendered with the workflow variables. */
+  task: string;
+  /** Hand-off template appended to the next node's prompt after confirmation. */
+  handoffPrompt?: string;
+  condition: WorkflowNodeCondition;
+  turnBudget: number;
+  timeoutMs: number;
+}
+
+export interface WorkflowDefinitionSnapshot {
+  version: 1;
+  workflowId: string;
+  goal: string;
+  workstationId: string;
+  /** Linear chain in execution order (v1 validates linearity at the editor). */
+  nodes: WorkflowNodeDefinition[];
+}
+
+export type WorkflowRunStatus =
+  | "pending" | "running" | "completed" | "failed" | "cancelled" | "interrupted";
+
+export type WorkflowNodeRunStatus =
+  | "pending" | "starting" | "running" | "verifying" | "waiting_approval"
+  | "completed" | "failed" | "cancelled" | "interrupted" | "blocked_offline";
+
+export interface WorkflowNodeRunState {
+  nodeId: string;
+  index: number;
+  status: WorkflowNodeRunStatus;
+  attempts: number;
+  sessionId?: string;
+  /** Machine-readable, non-content reason (e.g. timeout, gate_denied). */
+  reasonCode?: string;
+  startedAt?: string;
+  completedAt?: string;
+}
+
+export interface WorkflowRunState {
+  runId: string;
+  workflowId: string;
+  status: WorkflowRunStatus;
+  currentNodeIndex: number;
+  nodes: WorkflowNodeRunState[];
+  reasonCode?: string;
+  startedAt?: string;
+  completedAt?: string;
+}
+
 export type ConnectorPayload =
   | {
       type: "workstation.heartbeat";
@@ -743,6 +821,22 @@ export type ConnectorPayload =
       requestId: string;
       status: "cancelled" | "interrupted";
       reason: string;
+    }
+  | {
+      type: "workflow.run.status";
+      runId: string;
+      status: WorkflowRunStatus;
+      reasonCode?: string;
+    }
+  | {
+      type: "workflow.node.status";
+      runId: string;
+      nodeId: string;
+      index: number;
+      status: WorkflowNodeRunStatus;
+      attempts: number;
+      sessionId?: string;
+      reasonCode?: string;
     };
 
 export interface TransportEnvelope<T = unknown> {
@@ -759,6 +853,12 @@ export interface TransportEnvelope<T = unknown> {
 
 export type ConnectorServerMessage =
   | { type: "welcome"; connectionEpoch: string; lastAcceptedSequence: number }
+  | {
+      type: "workflow.run.dispatch";
+      runId: string;
+      definition: WorkflowDefinitionSnapshot;
+    }
+  | { type: "workflow.run.cancel"; runId: string; reason: string }
   | { type: "ack"; messageId: string; sequence: number }
   | { type: "heartbeat"; timestamp: string }
   | { type: "decision"; messageId: string; sequence: number; requestId: string; decisionId: string; decision: DecisionInput }

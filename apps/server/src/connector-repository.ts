@@ -515,6 +515,31 @@ async function applyPayload(
     return;
   }
 
+  if (payload.type === "workflow.run.status") {
+    // The server owns the persisted run state machine (ADR-032); connector
+    // reports update rows created by the run endpoint. Unknown runs are
+    // ignored rather than fabricated.
+    await client.query(
+      `UPDATE workflow_runs SET status = $3, reason_code = $4, updated_at = now()
+        WHERE workspace_id = $1 AND id = $2`,
+      [identity.workspaceId, payload.runId, payload.status, payload.reasonCode ?? null],
+    );
+    return;
+  }
+
+  if (payload.type === "workflow.node.status") {
+    await client.query(
+      `UPDATE workflow_node_runs SET status = $4, attempts = $5,
+              session_id = $6, reason_code = $7,
+              started_at = COALESCE(started_at, CASE WHEN $4 IN ('starting','running','verifying','waiting_approval','blocked_offline') THEN now() ELSE started_at END),
+              completed_at = CASE WHEN $4 IN ('completed','failed','cancelled','interrupted') THEN now() ELSE completed_at END,
+              updated_at = now()
+        WHERE workspace_id = $1 AND run_id = $2 AND node_id = $3`,
+      [identity.workspaceId, payload.runId, payload.nodeId, payload.status, payload.attempts, payload.sessionId ?? null, payload.reasonCode ?? null],
+    );
+    return;
+  }
+
   if (payload.type === "turn.completed") {
     const sessionStatus = payload.status === "completed" ? "completed" : payload.status;
     await client.query(

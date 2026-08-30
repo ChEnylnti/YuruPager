@@ -209,6 +209,12 @@ export class ConnectorCloudClient {
       for (const handler of this.#attachmentHandlers) await handler(control);
       return;
     }
+    if (value.type !== "decision" && value.type !== "session.command") {
+      // Newer server message types (e.g. workflow dispatch) are ignored by
+      // older connectors instead of tearing the socket down; the server
+      // gates delivery by connector version.
+      return;
+    }
     const inbound = readRemoteInbound(value);
     const fresh = this.#store.acceptInbound(inbound.messageId, inbound.sequence, inbound);
     if (!fresh) {
