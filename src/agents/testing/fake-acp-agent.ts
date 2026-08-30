@@ -47,6 +47,19 @@ function emitUpdate(sessionId: string, update: Record<string, unknown>): void {
 
 async function runPrompt(sessionId: string): Promise<void> {
   emitUpdate(sessionId, { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "正在分析" } });
+  if (scenario === "raw-tool-io") {
+    emitUpdate(sessionId, {
+      sessionUpdate: "tool_call",
+      toolCallId: "tool-raw-1",
+      title: "删除构建产物",
+      kind: "execute",
+      rawInput: { command: "SECRET-COMMAND-XYZ --token abc123" },
+      rawOutput: { stdout: "SECRET-OUTPUT-XYZ", exitCode: 0 },
+      rawContent: "SECRET-CONTENT-XYZ",
+    });
+    emitUpdate(sessionId, { sessionUpdate: "turn_end", stopReason: "end_turn" });
+    return;
+  }
   const permission = await request("session/request_permission", {
     sessionId,
     options: permissionOptions,
