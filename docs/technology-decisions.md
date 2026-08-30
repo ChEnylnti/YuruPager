@@ -1,6 +1,6 @@
 # YuruPager 技术选型与架构决策
 
-- 文档版本：v1.7
+- 文档版本：v1.8
 - 状态：关键 Spike 完成，进入 MVP 实施
 - 更新日期：2026-08-30
 - 关联需求：[产品需求文档](./product-requirements.md)
@@ -49,6 +49,8 @@
 | ADR-025 | 会话发现按 agent 能力降级，禁止读取 agent 本地转录文件 | Phase 2 采纳 |
 | ADR-026 | Connector 协议 v2 增量演进：agent 字段 + sessionId 别名，不做破坏性改名 | Phase 1 采纳 |
 | ADR-027 | 审批归一化到 RequestContext/DecisionInput，未知选项 fail-closed；version-gate 泛化为 per-agent 能力探测 | Phase 2 采纳 |
+| ADR-028 | Claude Code 经 claude-agent-acp 适配器接入（ACP 路径），原生 stream-json 适配器为条件性后备 | 草案（真实 CLI 验证清单通过后转采纳） |
+| ADR-029 | Cursor 经原生 stream-json 适配器接入（事件协议非 JSON-RPC） | 草案（fake 契约通过后转采纳） |
 
 ## 3. Codex 能力证据基线
 
@@ -1161,6 +1163,43 @@ ACP `session/request_permission` 的选项集与 Claude Code 权限请求同 Cod
 
 - fake-agent 契约测试包含未知权限选项场景，断言 fail-closed；Codex version-gate 既有测试保持。
 
+## ADR-028：Claude Code 接入路径（claude-agent-acp 适配器 vs 原生 stream-json）
+
+- 状态：草案（真实 CLI 验证清单通过后转采纳）
+- 决策日期：2026-08-30
+
+### 背景与约束
+
+Claude Code 同时具备两条可监督路径：社区适配器 `claude-agent-acp`（把 Claude Code 包装成 ACP agent）与原生无头 `claude -p --output-format stream-json`（`--include-partial-messages` 增量、`can_use_tool` 权限控制请求、`--resume` 会话恢复）。ADR-024 规定：仅当 ACP 路径有损时才建原生适配器。
+
+### 候选方案评估
+
+- ACP 适配器路径：零新增运行时代码（复用 `AcpAgentRuntime` 与全部契约测试）。权限粒度：适配器把 `canUseTool` 映射为 `session/request_permission`，权限“建议”（修改后的命令、按工具永久放行）在 YuruPager 侧本就按 ADR-027 fail-closed 拒绝，不构成额外损失；增量保真：适配器转发部分文本增量，粒度可接受。损失点：多一跳进程、适配器版本耦合、用量事件大概率被丢弃。
+- 原生 stream-json 路径：协议为非 JSON-RPC 的行式事件流，需要第二套连接层与状态机（Phase 3 的 Cursor 适配器已覆盖同族格式），收益主要是原生用量事件与少一跳，但审批语义（behavior allow/deny + suggestions）同样需要归一化，且字段随 CLI 版本漂移的风险更高。
+
+### 选择结果
+
+- 采用 ACP 适配器路径：`{kind: "acp", command: "claude-agent-acp"}` 预设直接接入。
+- 原生 stream-json 适配器列为条件性后备，触发条件（任一即转原生）：真实 CLI 验证清单中审批往返不可用、文本增量丢失、或适配器停止维护。
+- 用量：适配器路径下 Claude Code 用量标记为“不可用”，不构造数据；转原生时由 result 事件携带。
+
+### 验证方式
+
+- fake-agent 契约套件（与所有 ACP agent 共用）；真实 CLI 人工清单：`spike:acp-handshake --command claude-agent-acp`、Web 审批往返、增量渲染。
+
+## ADR-029：Cursor 原生 stream-json 适配器
+
+- 状态：草案（fake 契约通过后转采纳）
+- 决策日期：2026-08-30
+
+### 背景与选择
+
+Cursor CLI 无 ACP 模式，原生无头为 `--output-format stream-json` 的行式事件流（system/assistant/result 事件 + 控制请求），不是 JSON-RPC，无法复用 ACP 连接层。据此新建 `CursorAgentRuntime`：`system.init` 事件作为能力探测（fail-closed），assistant 文本映射 message 帧、tool_use 映射净化 activity（原始 input 不出工作站）、result 事件映射 turn 终态并携带用量（运行时累计为快照语义，provider 固定 `cursor`，无价格目录条目时成本显示为空）、控制请求映射审批且未知子类型 fail-closed。发现为 own-sessions，会话绑定沿用泛化后的会话绑定存储。
+
+### 验证方式
+
+- fake-cursor-agent 契约套件 + 净化/用量测试；真实 CLI 人工清单。
+
 ## 4. 实施顺序
 
 1. 固化 YuruPager Domain Event、Approval Request、Delivery Journal 和 Token Usage Schema。
@@ -1189,6 +1228,10 @@ ACP `session/request_permission` 的选项集与 Claude Code 权限请求同 Cod
 - 任何降低默认拒绝、租户隔离或审计完整性的变更必须经过安全评审。
 
 ## 7. 版本记录
+
+### v1.8（2026-08-30）
+
+- 新增 ADR-028/029 草案：Claude Code 采用 claude-agent-acp 适配器路径（原生 stream-json 为条件性后备）、Cursor 原生 stream-json 适配器。
 
 ### v1.7（2026-08-30）
 
