@@ -65,6 +65,8 @@ export class ConnectorCloudClient {
   readonly #commandHandlers = new Set<(command: RemoteSessionCommand) => Promise<void> | void>();
   readonly #streamHandlers = new Set<(control: RemoteSessionStreamControl) => Promise<void> | void>();
   readonly #attachmentHandlers = new Set<(control: RemoteAttachmentControl) => Promise<void> | void>();
+  readonly #workflowDispatchHandlers = new Set<(runId: string, definition: unknown, messageId: string, sequence: number) => void>();
+  readonly #workflowCancelHandlers = new Set<(runId: string, reason: string) => void>();
   readonly #statusHandlers = new Set<(online: boolean) => void>();
   readonly #processingInbound = new Set<string>();
 
@@ -149,6 +151,16 @@ export class ConnectorCloudClient {
     return () => this.#attachmentHandlers.delete(handler);
   }
 
+  onWorkflowDispatch(handler: (runId: string, definition: unknown, messageId: string, sequence: number) => void): () => void {
+    this.#workflowDispatchHandlers.add(handler);
+    return () => this.#workflowDispatchHandlers.delete(handler);
+  }
+
+  onWorkflowCancel(handler: (runId: string, reason: string) => void): () => void {
+    this.#workflowCancelHandlers.add(handler);
+    return () => this.#workflowCancelHandlers.delete(handler);
+  }
+
   onStatus(handler: (online: boolean) => void): () => void {
     this.#statusHandlers.add(handler);
     return () => this.#statusHandlers.delete(handler);
@@ -201,6 +213,31 @@ export class ConnectorCloudClient {
     if (value.type === "session.stream.subscribe" || value.type === "session.stream.unsubscribe") {
       const control = readSessionStreamControl(value);
       for (const handler of this.#streamHandlers) await handler(control);
+      return;
+    }
+    if (value.type === "workflow.run.dispatch" || value.type === "workflow.run.cancel") {
+      const runId = typeof value.runId === "string" ? value.runId : "";
+      const messageId = typeof value.messageId === "string" ? value.messageId : "";
+      if (runId.length === 0 || messageId.length === 0) return;
+      const fresh = this.#store.acceptInbound(messageId, Number(value.sequence ?? 0), value);
+      if (!fresh) {
+        this.#sendRaw({ type: "ack", messageId, sequence: Number(value.sequence ?? 0) });
+        return;
+      }
+      if (this.#processingInbound.has(messageId)) return;
+      this.#processingInbound.add(messageId);
+      try {
+        if (value.type === "workflow.run.dispatch") {
+          for (const handler of this.#workflowDispatchHandlers) handler(runId, value.definition, messageId, Number(value.sequence ?? 0));
+        } else {
+          const reason = typeof value.reason === "string" ? value.reason : "unknown";
+          for (const handler of this.#workflowCancelHandlers) handler(runId, reason);
+        }
+        this.#store.markInboundProcessed(messageId, true);
+      } finally {
+        this.#processingInbound.delete(messageId);
+      }
+      this.#sendRaw({ type: "ack", messageId, sequence: Number(value.sequence ?? 0) });
       return;
     }
     if (value.type.startsWith("session.attachment.")) {

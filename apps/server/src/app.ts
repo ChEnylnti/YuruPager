@@ -1,5 +1,5 @@
 import { access, readFile } from "node:fs/promises";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -20,6 +20,17 @@ import {
 } from "./auth.js";
 import type { Config } from "./config.js";
 import { registerConnectorRoute } from "./connector.js";
+import {
+  cancelWorkflowRun,
+  createWorkflow,
+  deleteWorkflow,
+  getWorkflow,
+  listWorkflowRuns,
+  listWorkflows,
+  runWorkflow,
+  updateWorkflow,
+  type WorkflowNodeInput,
+} from "./workflow-repository.js";
 import {
   getPendingConnectorCommand,
   getPendingConnectorDecision,
@@ -94,6 +105,116 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     }
   });
   registerConnectorRoute(app, database, config, invalidateWorkspace, sessionRelay, pushService);
+
+  type WorkflowBody = {
+    workspaceId?: unknown;
+    workstationId?: unknown;
+    name?: unknown;
+    goal?: unknown;
+    nodes?: unknown;
+  };
+
+  app.post<{ Body: WorkflowBody }>("/api/workflows", async (request) => {
+    const auth = await authenticateRequest(request, database.app, config);
+    const body = readObject(request.body);
+    const workspaceId = String(body.workspaceId ?? "");
+    const workstationId = String(body.workstationId ?? "");
+    const name = String(body.name ?? "");
+    const goal = String(body.goal ?? "");
+    const nodes = Array.isArray(body.nodes) ? body.nodes as never[] : [];
+    const result = await createWorkflow(database.app, auth.user.id, workspaceId, {
+      name, goal, workstationId,
+      nodes: nodes as WorkflowNodeInput[],
+    });
+    invalidateWorkspace(workspaceId);
+    return result;
+  });
+
+  app.get<{ Querystring: { workspaceId?: string } }>("/api/workflows", async (request) => {
+    const auth = await authenticateRequest(request, database.app, config);
+    const workspaceId = String((request.query as { workspaceId?: string }).workspaceId ?? "");
+    return listWorkflows(database.app, auth.user.id, workspaceId);
+  });
+
+  app.get<{ Params: { workflowId: string }; Querystring: { workspaceId?: string } }>(
+    "/api/workflows/:workflowId",
+    async (request) => {
+      const auth = await authenticateRequest(request, database.app, config);
+      const workspaceId = String((request.query as { workspaceId?: string }).workspaceId ?? "");
+      return getWorkflow(database.app, auth.user.id, workspaceId, request.params.workflowId);
+    },
+  );
+
+  app.put<{ Params: { workflowId: string }; Body: WorkflowBody }>(
+    "/api/workflows/:workflowId",
+    async (request) => {
+      const auth = await authenticateRequest(request, database.app, config);
+      const body = readObject(request.body);
+      const workspaceId = String(body.workspaceId ?? "");
+      const workstationId = String(body.workstationId ?? "");
+      const name = String(body.name ?? "");
+      const goal = String(body.goal ?? "");
+      const nodes = Array.isArray(body.nodes) ? body.nodes as never[] : [];
+      const result = await updateWorkflow(database.app, auth.user.id, workspaceId, request.params.workflowId, {
+        name, goal, workstationId,
+        nodes: nodes as WorkflowNodeInput[],
+      });
+      invalidateWorkspace(workspaceId);
+      return result;
+    },
+  );
+
+  app.delete<{ Params: { workflowId: string }; Querystring: { workspaceId?: string } }>(
+    "/api/workflows/:workflowId",
+    async (request, reply) => {
+      const auth = await authenticateRequest(request, database.app, config);
+      const workspaceId = String((request.query as { workspaceId?: string }).workspaceId ?? "");
+      await deleteWorkflow(database.app, auth.user.id, workspaceId, request.params.workflowId);
+      invalidateWorkspace(workspaceId);
+      return reply.code(204).send();
+    },
+  );
+
+  app.post<{ Params: { workflowId: string }; Body: WorkflowBody }>(
+    "/api/workflows/:workflowId/run",
+    async (request) => {
+      const auth = await authenticateRequest(request, database.app, config);
+      const body = readObject(request.body);
+      const workspaceId = String(body.workspaceId ?? "");
+      const outcome = await runWorkflow(database.app, auth.user.id, workspaceId, request.params.workflowId);
+      sessionRelay.pushWorkflowDispatch(
+        { workspaceId, workstationId: outcome.run.workstationId },
+        { runId: outcome.dispatch.runId, definition: outcome.dispatch.definition, messageId: randomUUID(), sequence: 0 },
+      );
+      invalidateWorkspace(workspaceId);
+      return outcome.run;
+    },
+  );
+
+  app.post<{ Params: { runId: string }; Body: WorkflowBody }>(
+    "/api/workflow-runs/:runId/cancel",
+    async (request) => {
+      const auth = await authenticateRequest(request, database.app, config);
+      const body = readObject(request.body);
+      const workspaceId = String(body.workspaceId ?? "");
+      const outcome = await cancelWorkflowRun(database.app, auth.user.id, workspaceId, request.params.runId);
+      sessionRelay.pushWorkflowCancel(
+        { workspaceId, workstationId: outcome.run.workstationId },
+        { runId: outcome.dispatch.runId, reason: "user_cancelled", messageId: randomUUID(), sequence: 0 },
+      );
+      invalidateWorkspace(workspaceId);
+      return outcome.run;
+    },
+  );
+
+  app.get<{ Params: { workflowId: string }; Querystring: { workspaceId?: string } }>(
+    "/api/workflows/:workflowId/runs",
+    async (request) => {
+      const auth = await authenticateRequest(request, database.app, config);
+      const workspaceId = String((request.query as { workspaceId?: string }).workspaceId ?? "");
+      return listWorkflowRuns(database.app, auth.user.id, workspaceId, request.params.workflowId);
+    },
+  );
   registerPreviewConnectorRoute(app, database, config, previewRelay);
   app.addHook("onReady", async () => previewGateway.start());
   app.addHook("onClose", async () => previewGateway.stop());

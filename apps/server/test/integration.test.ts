@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createServer, request as httpRequest } from "node:http";
+import assert from "node:assert/strict";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import ClientWebSocket, { WebSocketServer, type WebSocket } from "ws";
 
@@ -7,6 +8,13 @@ import type { ConnectorPayload, TransportEnvelope } from "@yurupager/shared";
 import { PreviewTunnelClient } from "../../../src/preview/client.js";
 
 import { buildApp } from "../src/app.js";
+import {
+  createWorkflow,
+  getWorkflow,
+  listWorkflowRuns,
+  runWorkflow,
+  cancelWorkflowRun,
+} from "../src/workflow-repository.js";
 import { issueAttachmentTicket } from "../src/attachment-ticket.js";
 import { loadConfig } from "../src/config.js";
 import {
@@ -15,6 +23,7 @@ import {
   getPendingConnectorDecisions,
   processConnectorEnvelope,
 } from "../src/connector-repository.js";
+import { decideRequest } from "../src/repository.js";
 import {
   closeDatabase,
   createDatabase,
@@ -2187,6 +2196,96 @@ describe("connector reliability", () => {
       [identity.workspaceId, identity.workstationId, threadId],
     );
     expect(refreshed.rows[0]?.sync_state).toBe("live");
+  });
+
+  it("workflow CRUD, run dispatch, and gate decision flow end to end", async () => {
+    const nodes = [
+      { id: "node-a", agentKind: "codex", task: "First task for {{workflow.goal}}",
+        condition: { kind: "agent_confirm" as const, maxRetries: 1, backoffMs: 5 }, turnBudget: 3, timeoutMs: 60_000 },
+      { id: "node-b", agentKind: "codex", task: "Second: {{prev.finalMessage}}",
+        handoffPrompt: "Handoff: {{prev.checkSummary}}",
+        condition: { kind: "manual_gate" as const, maxRetries: 0, backoffMs: 5 }, turnBudget: 3, timeoutMs: 60_000 },
+    ];
+    const created = await createWorkflow(database.app, "10000000-0000-4000-8000-000000000001", identity.workspaceId, {
+      name: "Integration workflow", goal: "Ship it", workstationId: identity.workstationId,
+      nodes,
+    });
+    assert.equal(created.definition.nodes.length, 2);
+    assert.equal(created.definition.nodes[0]?.task, "First task for {{workflow.goal}}");
+
+    const listed = await listWorkflowRuns(database.app, "10000000-0000-4000-8000-000000000001", identity.workspaceId, created.id);
+    assert.equal(listed.length, 0);
+
+    // alice needs can_orchestrate on the workstation to run workflows
+    await database.admin.query(
+      `UPDATE workstation_access SET can_orchestrate = true
+        WHERE workspace_id = $1 AND workstation_id = $2 AND user_id = '10000000-0000-4000-8000-000000000001'`,
+      [identity.workspaceId, identity.workstationId],
+    );
+
+    // alice (owner with can_manage in seed) runs the workflow
+    const outcome = await runWorkflow(database.app, "10000000-0000-4000-8000-000000000001", identity.workspaceId, created.id);
+    const runId = outcome.run.id;
+    assert.equal(outcome.run.status, "running");
+
+    // active-run constraint
+    await expect(runWorkflow(database.app, "10000000-0000-4000-8000-000000000001", identity.workspaceId, created.id))
+      .rejects.toThrow(/already has an active run/);
+
+    // node runs were created pending
+    const detail = await getWorkflow(database.app, "10000000-0000-4000-8000-000000000001", identity.workspaceId, created.id);
+    assert.equal(detail.runs[0]?.id, runId);
+
+    // connector reports node running + completed via workflow.node.status
+    await processConnectorEnvelope(database.connector, identity, makeEnvelope(randomUUID(), 800, {
+      type: "workflow.node.status", runId, nodeId: "node-a", index: 0,
+      status: "running", attempts: 0,
+      sessionId: "40000000-0000-4000-8000-000000000001",
+    }));
+    await processConnectorEnvelope(database.connector, identity, makeEnvelope(randomUUID(), 801, {
+      type: "workflow.node.status", runId, nodeId: "node-a", index: 0,
+      status: "completed", attempts: 0,
+      sessionId: "40000000-0000-4000-8000-000000000001",
+    }));
+    await processConnectorEnvelope(database.connector, identity, makeEnvelope(randomUUID(), 802, {
+      type: "workflow.node.status", runId, nodeId: "node-b", index: 1,
+      status: "waiting_approval", attempts: 0,
+      sessionId: "40000000-0000-4000-8000-000000000001",
+    }));
+
+    // manual_gate arrives as a request.created with kind workflow_gate and
+    // rides the existing approval flow (decide → outbox → connector).
+    await processConnectorEnvelope(database.connector, identity, makeEnvelope(randomUUID(), 803, {
+      type: "request.created",
+      requestId: "90000000-0000-4000-8000-000000000099",
+      threadId: "thread-alpha-live",
+      agent: "codex",
+      sessionId: "40000000-0000-4000-8000-000000000001",
+      turnId: "turn-alpha-7",
+      itemId: "gate-item-1",
+      kind: "workflow_gate",
+      category: "workflow",
+      tool: "manual_gate",
+      risk: "high",
+      context: { reason: "workflow_gate:node-b", availableDecisions: ["approve", "deny"] },
+      requestedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+    }));
+    const decision = await decideRequest(
+      database.app,
+      "10000000-0000-4000-8000-000000000001",
+      "90000000-0000-4000-8000-000000000099",
+      "idem-gate-1",
+      { decision: "deny", reason: "not ready" },
+    );
+    assert.equal(decision.request.status, "denied");
+    const pendingDecisions = await getPendingConnectorDecisions(database.connector, identity);
+    assert.ok(pendingDecisions.some((entry) => entry.requestId === "90000000-0000-4000-8000-000000000099"));
+
+    // cancel the run
+    await cancelWorkflowRun(database.app, "10000000-0000-4000-8000-000000000001", identity.workspaceId, runId);
+    const cancelledRuns = await listWorkflowRuns(database.app, "10000000-0000-4000-8000-000000000001", identity.workspaceId, created.id);
+    assert.equal(cancelledRuns[0]?.status, "cancelled");
   });
 
   it("turn interruption cancels the old pending approval", async () => {

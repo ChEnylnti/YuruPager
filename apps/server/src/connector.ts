@@ -14,6 +14,7 @@ import {
   getConnectorCursor,
   getPendingConnectorCommands,
   getPendingConnectorDecisions,
+  getPendingConnectorWorkflows,
   findConnectorIdentity,
   heartbeatWorkstation,
   processConnectorEnvelope,
@@ -163,11 +164,12 @@ async function sendWelcomeAndReplay(
 ): Promise<Set<string>> {
   const cursor = await getConnectorCursor(database.connector, identity);
   send(socket, { type: "welcome", connectionEpoch, lastAcceptedSequence: cursor });
-  const [decisions, commands] = await Promise.all([
+  const [decisions, commands, workflows] = await Promise.all([
     getPendingConnectorDecisions(database.connector, identity),
     getPendingConnectorCommands(database.connector, identity),
+    getPendingConnectorWorkflows(database.connector, identity),
   ]);
-  const messages: Array<Extract<ConnectorServerMessage, { type: "decision" | "session.command" }>> = [
+  const messages: Array<Extract<ConnectorServerMessage, { sequence: number; messageId: string }>> = [
     ...decisions.map((decision): Extract<ConnectorServerMessage, { type: "decision" }> => ({
       type: "decision",
       messageId: decision.messageId,
@@ -184,6 +186,20 @@ async function sendWelcomeAndReplay(
       threadId: command.threadId,
       text: command.text,
       attachments: command.attachments,
+    })),
+    ...workflows.dispatches.map((dispatch): Extract<ConnectorServerMessage, { type: "workflow.run.dispatch"; sequence: number; messageId: string }> => ({
+      type: "workflow.run.dispatch",
+      messageId: dispatch.messageId,
+      sequence: dispatch.sequence,
+      runId: dispatch.runId,
+      definition: dispatch.definition,
+    })),
+    ...workflows.cancels.map((cancel): Extract<ConnectorServerMessage, { type: "workflow.run.cancel"; sequence: number; messageId: string }> => ({
+      type: "workflow.run.cancel",
+      messageId: cancel.messageId,
+      sequence: cancel.sequence,
+      runId: cancel.runId,
+      reason: cancel.reason,
     })),
   ].sort((left, right) => left.sequence - right.sequence);
   for (const message of messages) {

@@ -1,7 +1,8 @@
-import type { ConnectorPayload, ConnectorSessionStreamMessage } from "@yurupager/shared";
+import type { ConnectorPayload, ConnectorSessionStreamMessage, WorkflowDefinitionSnapshot } from "@yurupager/shared";
 
 import type { AgentEventSink, AgentRuntime } from "../agents/types.js";
 
+import type { WorkflowEngine } from "../workflow/engine.js";
 import type {
   ConnectorCloudClient,
   RemoteAttachmentControl,
@@ -11,6 +12,8 @@ export interface MultiAgentRuntimeOptions {
   cloud: ConnectorCloudClient;
   /** Enabled agent runtimes in priority order; the first is the default owner. */
   agents: AgentRuntime[];
+  /** Planning-workflow engine; receives dispatch/cancel and gate decisions. */
+  workflowEngine?: WorkflowEngine;
 }
 
 /**
@@ -40,6 +43,7 @@ export class MultiAgentRuntime {
   readonly #defaultAgentId: string;
   readonly #sessionOwners = new Map<string, string>();
   readonly #uploadOwners = new Map<string, string>();
+  readonly #workflowEngine: WorkflowEngine | undefined;
 
   constructor(options: MultiAgentRuntimeOptions) {
     for (const agent of options.agents) {
@@ -53,12 +57,27 @@ export class MultiAgentRuntime {
     }
     this.#defaultAgentId = options.agents[0]?.agentId as string;
     this.#cloud = options.cloud;
+    this.#workflowEngine = options.workflowEngine;
     // Wire the shared event sink so every runtime publishes sessions,
     // frames, and usage through the fan-out's single cloud connection.
     const sink = new CloudAgentEventSink(this.#cloud);
     for (const agent of options.agents) agent.attach(sink);
     this.#cloud.onDecision((decision) => {
+      // workflow_gate decisions are consumed by the planning-workflow engine;
+      // everything else routes to the owning agent runtime.
+      if (this.#workflowEngine?.handleGateDecision({
+        requestId: decision.requestId,
+        decision: decision.decision.decision === "approve" ? "approve" : "deny",
+      }) === true) return;
       void this.#default().handleDecision(decision);
+    });
+    this.#cloud.onWorkflowDispatch((runId, definition, messageId, sequence) => {
+      if (this.#workflowEngine === undefined) return;
+      this.#workflowEngine.dispatchRun(definition as WorkflowDefinitionSnapshot, runId);
+      void messageId; void sequence;
+    });
+    this.#cloud.onWorkflowCancel((runId, reason) => {
+      this.#workflowEngine?.cancelRun(runId, reason);
     });
     this.#cloud.onCommand((command) => {
       void this.#resolveOwner(command.threadId).handleSessionCommand(command);

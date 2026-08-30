@@ -14,6 +14,7 @@ import type {
   OutboxDecision,
   OutboxSessionCommand,
 } from "./connector-repository.js";
+import type { WorkflowDefinitionSnapshot } from "@yurupager/shared";
 import { authorizeSessionStream } from "./repository.js";
 import { UploadRegistry } from "./session-relay/attachments.js";
 import {
@@ -214,6 +215,26 @@ export class SessionRelay {
       threadId: command.threadId,
       text: command.text,
       attachments: command.attachments,
+    });
+  }
+
+  pushWorkflowDispatch(identity: ConnectorIdentity, dispatch: { runId: string; definition: WorkflowDefinitionSnapshot; messageId: string; sequence: number }): boolean {
+    return this.#links.pushReliable(identity, {
+      type: "workflow.run.dispatch",
+      messageId: dispatch.messageId,
+      sequence: dispatch.sequence,
+      runId: dispatch.runId,
+      definition: dispatch.definition,
+    });
+  }
+
+  pushWorkflowCancel(identity: ConnectorIdentity, cancel: { runId: string; reason: string; messageId: string; sequence: number }): boolean {
+    return this.#links.pushReliable(identity, {
+      type: "workflow.run.cancel",
+      messageId: cancel.messageId,
+      sequence: cancel.sequence,
+      runId: cancel.runId,
+      reason: cancel.reason,
     });
   }
 

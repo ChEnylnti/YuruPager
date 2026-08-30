@@ -4,7 +4,7 @@ import type { WebSocket } from "ws";
 
 import type { ConnectorIdentity } from "../connector-repository.js";
 
-export type ReliableConnectorMessage = Extract<ConnectorServerMessage, { type: "decision" | "session.command" }>;
+export type ReliableConnectorMessage = Extract<ConnectorServerMessage, { type: "decision" | "session.command" | "workflow.run.dispatch" | "workflow.run.cancel" }>;
 
 interface ConnectorConnection {
   socket: WebSocket;

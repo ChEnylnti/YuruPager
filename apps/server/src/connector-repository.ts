@@ -9,6 +9,7 @@ import {
   type DecisionInput,
   type SessionCommandAttachment,
   type TransportEnvelope,
+  type WorkflowDefinitionSnapshot,
 } from "@yurupager/shared";
 
 import { withServiceTransaction } from "./database.js";
@@ -223,6 +224,62 @@ export async function getPendingConnectorCommand(
 ): Promise<OutboxSessionCommand | null> {
   const commands = await getPendingConnectorCommands(pool, identity);
   return commands.find((command) => command.commandId === commandId) ?? null;
+}
+
+export interface OutboxWorkflowDispatch {
+  messageId: string;
+  sequence: number;
+  runId: string;
+  definition: WorkflowDefinitionSnapshot;
+}
+
+export interface OutboxWorkflowCancel {
+  messageId: string;
+  sequence: number;
+  runId: string;
+  reason: string;
+}
+
+export async function getPendingConnectorWorkflows(
+  pool: Pool,
+  identity: ConnectorIdentity,
+): Promise<{ dispatches: OutboxWorkflowDispatch[]; cancels: OutboxWorkflowCancel[] }> {
+  return withServiceTransaction(pool, identity.workspaceId, async (client) => {
+    const result = await client.query<{
+      id: string;
+      sequence: string;
+      message_type: string;
+      run_id: string | null;
+      payload: Record<string, unknown>;
+    }>(
+      `SELECT o.id, o.sequence::text, o.message_type, o.run_id, o.payload
+         FROM connector_outbox o
+        WHERE o.workspace_id = $1 AND o.workstation_id = $2
+          AND o.acknowledged_at IS NULL
+          AND o.message_type IN ('workflow.dispatch', 'workflow.cancel')
+          AND o.run_id IS NOT NULL
+        ORDER BY o.sequence`,
+      [identity.workspaceId, identity.workstationId],
+    );
+    const dispatches: OutboxWorkflowDispatch[] = [];
+    const cancels: OutboxWorkflowCancel[] = [];
+    for (const row of result.rows) {
+      if (row.message_type === "workflow.dispatch") {
+        const definition = (row.payload as { definition?: WorkflowDefinitionSnapshot }).definition;
+        if (definition === undefined || typeof row.run_id !== "string") {
+          throw new Error("Workflow dispatch Outbox payload is invalid");
+        }
+        dispatches.push({ messageId: row.id, sequence: Number(row.sequence), runId: row.run_id, definition });
+      } else {
+        const reason = (row.payload as { reason?: unknown }).reason;
+        if (typeof row.run_id !== "string" || typeof reason !== "string") {
+          throw new Error("Workflow cancel Outbox payload is invalid");
+        }
+        cancels.push({ messageId: row.id, sequence: Number(row.sequence), runId: row.run_id, reason });
+      }
+    }
+    return { dispatches, cancels };
+  });
 }
 
 export async function acknowledgeConnectorOutbox(

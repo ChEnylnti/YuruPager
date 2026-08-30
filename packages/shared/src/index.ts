@@ -855,10 +855,12 @@ export type ConnectorServerMessage =
   | { type: "welcome"; connectionEpoch: string; lastAcceptedSequence: number }
   | {
       type: "workflow.run.dispatch";
+      messageId: string;
+      sequence: number;
       runId: string;
       definition: WorkflowDefinitionSnapshot;
     }
-  | { type: "workflow.run.cancel"; runId: string; reason: string }
+  | { type: "workflow.run.cancel"; messageId: string; sequence: number; runId: string; reason: string }
   | { type: "ack"; messageId: string; sequence: number }
   | { type: "heartbeat"; timestamp: string }
   | { type: "decision"; messageId: string; sequence: number; requestId: string; decisionId: string; decision: DecisionInput }

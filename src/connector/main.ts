@@ -18,6 +18,7 @@ import { AcpAgentRuntime } from "../agents/acp/acp-agent-runtime.js";
 import { CursorAgentRuntime } from "../agents/cursor/cursor-agent-runtime.js";
 import { ZcodeAgentRuntime } from "../agents/zcode/zcode-agent-runtime.js";
 import { resolveAgentPreset } from "../agents/agent-presets.js";
+import { WorkflowEngine } from "../workflow/engine.js";
 import { MultiAgentRuntime } from "./multi-agent-runtime.js";
 import { ConnectorRuntime } from "./runtime.js";
 import { codexAgentConfig, loadConnectorConfig, resolveConnectorAgents, runSetup } from "./setup.js";
@@ -183,7 +184,14 @@ async function startConnector(): Promise<void> {
     throw new Error(`配置包含尚未支持的 agent 类型：${agent.kind}`);
   }
   if (runtimes.length === 0) throw new Error("配置未启用任何 agent");
-  const runtime = new MultiAgentRuntime({ cloud, agents: runtimes });
+  const runtimeById = new Map<string, AgentRuntime>();
+  for (const agentRuntime of runtimes) runtimeById.set(agentRuntime.agentId, agentRuntime);
+  const workflowEngine = new WorkflowEngine({
+    cloud,
+    resolveRuntime: (agentKind) => runtimeById.get(agentKind),
+    journalPath: join(dataDirectory, "workflow-runs.sqlite"),
+  });
+  const runtime = new MultiAgentRuntime({ cloud, agents: runtimes, workflowEngine });
 
   const shutdown = async () => {
     await runtime?.stop();
