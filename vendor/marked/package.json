@@ -1,0 +1,21 @@
+{
+  "name": "marked",
+  "version": "18.0.5",
+  "description": "A markdown parser built for speed",
+  "license": "MIT",
+  "type": "module",
+  "main": "./lib/marked.esm.js",
+  "module": "./lib/marked.esm.js",
+  "browser": "./lib/marked.umd.js",
+  "types": "./lib/marked.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/marked.d.ts",
+      "default": "./lib/marked.esm.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">= 20"
+  }
+}

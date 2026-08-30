@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Secrets — never commit real credentials (.env.example is the tracked template)
+.env
+.env.*
+!.env.example
+
+# Build outputs
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Connector artifacts & test outputs
+artifacts/
+.yurupager-spike/
+test-results/
+playwright-report/
+blob-report/
+
+# macOS / editor noise
+.DS_Store
+
+# Swift / Xcode
+.build/
+.swiftpm/
+DerivedData/
+*.xcresult
+xcuserdata/

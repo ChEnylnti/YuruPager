@@ -1,0 +1,76 @@
+{
+  "name": "yurupager",
+  "version": "0.0.0",
+  "private": true,
+  "bin": {
+    "yurupager": "dist/src/connector/main.js"
+  },
+  "license": "Apache-2.0",
+  "type": "module",
+  "description": "YuruPager end-to-end Web Alpha",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build:connector-package": "npm run build --workspace @yurupager/shared && node scripts/build-connector-package.mjs",
+    "build:all": "npm run build --workspace @yurupager/shared && npm run build && node scripts/build-connector-package.mjs && npm run build --workspace @yurupager/server && npm run build --workspace @yurupager/web",
+    "check": "npm run build && npm run test:compiled",
+    "test": "npm run build && npm run test:compiled",
+    "test:all": "npm test && npm test --workspace @yurupager/server && npm test --workspace @yurupager/web",
+    "typecheck": "npm run build && npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "dev": "concurrently -k -n server,web -c blue,green \"npm run dev --workspace @yurupager/server\" \"npm run dev --workspace @yurupager/web\"",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:reset": "docker compose down -v && docker compose up -d postgres",
+    "e2e": "npm run test:e2e --workspace @yurupager/web",
+    "connector:start": "npm run build --workspace @yurupager/shared && npm run build && node dist/src/connector/main.js",
+    "connector:preview": "npm run build --workspace @yurupager/shared && npm run build && node dist/src/connector/main.js preview",
+    "test:compiled": "node --test dist/test/*.test.js",
+    "spike:handshake": "npm run build && node dist/src/spike/handshake.js",
+    "spike:approval": "npm run build && node dist/src/spike/approval.js",
+    "spike:question": "npm run build && node dist/src/spike/question.js",
+    "spike:shared-session": "npm run build && node dist/src/spike/shared-session.js",
+    "spike:remote-tui": "npm run build && node dist/src/spike/remote-tui.js",
+    "spike:decision-race": "npm run build && node dist/src/spike/decision-race.js",
+    "spike:listener-restart": "npm run build && node dist/src/spike/listener-restart.js",
+    "spike:approval-boundaries": "npm run build && node dist/src/spike/approval-boundaries.js",
+    "spike:protocol-contract": "npm run build && node dist/src/spike/protocol-contract.js",
+    "spike:remote-control-contract": "npm run build && node dist/src/spike/remote-control-contract.js",
+    "spike:remote-control-status": "npm run build && node dist/src/spike/remote-control-contract.js --local-status",
+    "spike:crash-window": "npm run build && node dist/src/spike/crash-window.js",
+    "spike:token-lifecycle": "npm run build && node dist/src/spike/token-lifecycle.js",
+    "spike:writer-release": "npm run build && node dist/src/spike/writer-release.js",
+    "smoke:public-image": "node scripts/smoke-public-image.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/ws": "^8.18.1",
+    "concurrently": "^9.2.0",
+    "typescript": "^5.9.0"
+  },
+  "dependencies": {
+    "@yurupager/shared": "0.1.0",
+    "ws": "^8.18.3"
+  },
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChEnylnti/YuruPager.git"
+  },
+  "keywords": [],
+  "author": "",
+  "bugs": {
+    "url": "https://github.com/ChEnylnti/YuruPager/issues"
+  },
+  "homepage": "https://github.com/ChEnylnti/YuruPager#readme"
+}

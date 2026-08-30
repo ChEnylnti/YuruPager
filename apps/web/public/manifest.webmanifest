@@ -1,0 +1,20 @@
+{
+  "name": "YuruPager",
+  "short_name": "YuruPager",
+  "description": "代理请求与决定",
+  "id": "./",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f8f6",
+  "theme_color": "#f7f8f6",
+  "orientation": "any",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "待处理请求", "short_name": "待处理", "url": "./?view=inbox" },
+    { "name": "工作站", "short_name": "工作站", "url": "./?view=workstations" }
+  ]
+}

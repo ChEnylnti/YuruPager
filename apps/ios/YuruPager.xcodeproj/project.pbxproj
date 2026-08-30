@@ -1,0 +1,629 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		100000000000000000000001 /* YuruPagerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000001 /* YuruPagerApp.swift */; };
+		100000000000000000000002 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000002 /* Models.swift */; };
+		100000000000000000000003 /* ServerConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000003 /* ServerConfiguration.swift */; };
+		100000000000000000000004 /* SubmissionGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000004 /* SubmissionGate.swift */; };
+		100000000000000000000005 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000005 /* APIClient.swift */; };
+		100000000000000000000006 /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000006 /* Conversation.swift */; };
+		100000000000000000000007 /* Labels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000007 /* Labels.swift */; };
+		100000000000000000000008 /* SecureCookieVault.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000008 /* SecureCookieVault.swift */; };
+		100000000000000000000009 /* LiveSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000009 /* LiveSocketClient.swift */; };
+		10000000000000000000000A /* AppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000A /* AppStore.swift */; };
+		10000000000000000000000B /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000B /* RootView.swift */; };
+		10000000000000000000000C /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000C /* LoginView.swift */; };
+		10000000000000000000000D /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000D /* Components.swift */; };
+		10000000000000000000000E /* RequestsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000E /* RequestsView.swift */; };
+		10000000000000000000000F /* RequestDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000F /* RequestDetailView.swift */; };
+		100000000000000000000010 /* WorkstationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000010 /* WorkstationsView.swift */; };
+		100000000000000000000011 /* SessionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000011 /* SessionsView.swift */; };
+		100000000000000000000012 /* SessionDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000012 /* SessionDetailView.swift */; };
+		100000000000000000000013 /* UsageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000013 /* UsageView.swift */; };
+		100000000000000000000014 /* MoreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000014 /* MoreView.swift */; };
+		100000000000000000000015 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000015 /* Assets.xcassets */; };
+		100000000000000000000016 /* CoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000016 /* CoreTests.swift */; };
+		100000000000000000000017 /* YuruPagerUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000017 /* YuruPagerUITests.swift */; };
+		100000000000000000000018 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 200000000000000000000018 /* Security.framework */; };
+		100000000000000000000019 /* SessionImages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001D /* SessionImages.swift */; };
+		10000000000000000000001A /* Markdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001E /* Markdown.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		300000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 700000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 600000000000000000000001;
+			remoteInfo = YuruPager;
+		};
+		300000000000000000000002 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 700000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 600000000000000000000001;
+			remoteInfo = YuruPager;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		200000000000000000000001 /* YuruPagerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YuruPagerApp.swift; sourceTree = "<group>"; };
+		200000000000000000000002 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		200000000000000000000003 /* ServerConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerConfiguration.swift; sourceTree = "<group>"; };
+		200000000000000000000004 /* SubmissionGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubmissionGate.swift; sourceTree = "<group>"; };
+		200000000000000000000005 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		200000000000000000000006 /* Conversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Conversation.swift; sourceTree = "<group>"; };
+		200000000000000000000007 /* Labels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Labels.swift; sourceTree = "<group>"; };
+		200000000000000000000008 /* SecureCookieVault.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureCookieVault.swift; sourceTree = "<group>"; };
+		200000000000000000000009 /* LiveSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveSocketClient.swift; sourceTree = "<group>"; };
+		20000000000000000000000A /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
+		20000000000000000000000B /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		20000000000000000000000C /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		20000000000000000000000D /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		20000000000000000000000E /* RequestsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestsView.swift; sourceTree = "<group>"; };
+		20000000000000000000000F /* RequestDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestDetailView.swift; sourceTree = "<group>"; };
+		200000000000000000000010 /* WorkstationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkstationsView.swift; sourceTree = "<group>"; };
+		200000000000000000000011 /* SessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionsView.swift; sourceTree = "<group>"; };
+		200000000000000000000012 /* SessionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionDetailView.swift; sourceTree = "<group>"; };
+		200000000000000000000013 /* UsageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageView.swift; sourceTree = "<group>"; };
+		200000000000000000000014 /* MoreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoreView.swift; sourceTree = "<group>"; };
+		200000000000000000000015 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		200000000000000000000016 /* CoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreTests.swift; sourceTree = "<group>"; };
+		200000000000000000000017 /* YuruPagerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YuruPagerUITests.swift; sourceTree = "<group>"; };
+		200000000000000000000018 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		200000000000000000000019 /* YuruPager.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = YuruPager.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		20000000000000000000001A /* YuruPagerCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = YuruPagerCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		20000000000000000000001B /* YuruPagerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = YuruPagerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		20000000000000000000001C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		20000000000000000000001D /* SessionImages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionImages.swift; sourceTree = "<group>"; };
+		20000000000000000000001E /* Markdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Markdown.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		400000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000018 /* Security.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		400000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		400000000000000000000003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		500000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				500000000000000000000002 /* YuruPager */,
+				500000000000000000000007 /* YuruPagerCoreTests */,
+				500000000000000000000008 /* YuruPagerUITests */,
+				500000000000000000000009 /* Frameworks */,
+				50000000000000000000000A /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		500000000000000000000002 /* YuruPager */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000001 /* YuruPagerApp.swift */,
+				500000000000000000000003 /* Core */,
+				500000000000000000000004 /* App */,
+				500000000000000000000005 /* Views */,
+				500000000000000000000006 /* Resources */,
+			);
+			path = YuruPager;
+			sourceTree = "<group>";
+		};
+		500000000000000000000003 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000002 /* Models.swift */,
+				200000000000000000000003 /* ServerConfiguration.swift */,
+				200000000000000000000004 /* SubmissionGate.swift */,
+				200000000000000000000005 /* APIClient.swift */,
+				200000000000000000000006 /* Conversation.swift */,
+				200000000000000000000007 /* Labels.swift */,
+				20000000000000000000001D /* SessionImages.swift */,
+				20000000000000000000001E /* Markdown.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		500000000000000000000004 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000008 /* SecureCookieVault.swift */,
+				200000000000000000000009 /* LiveSocketClient.swift */,
+				20000000000000000000000A /* AppStore.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		500000000000000000000005 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				20000000000000000000000B /* RootView.swift */,
+				20000000000000000000000C /* LoginView.swift */,
+				20000000000000000000000D /* Components.swift */,
+				20000000000000000000000E /* RequestsView.swift */,
+				20000000000000000000000F /* RequestDetailView.swift */,
+				200000000000000000000010 /* WorkstationsView.swift */,
+				200000000000000000000011 /* SessionsView.swift */,
+				200000000000000000000012 /* SessionDetailView.swift */,
+				200000000000000000000013 /* UsageView.swift */,
+				200000000000000000000014 /* MoreView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		500000000000000000000006 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000015 /* Assets.xcassets */,
+				20000000000000000000001C /* Info.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		500000000000000000000007 /* YuruPagerCoreTests */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000016 /* CoreTests.swift */,
+			);
+			path = YuruPagerCoreTests;
+			sourceTree = "<group>";
+		};
+		500000000000000000000008 /* YuruPagerUITests */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000017 /* YuruPagerUITests.swift */,
+			);
+			path = YuruPagerUITests;
+			sourceTree = "<group>";
+		};
+		500000000000000000000009 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000018 /* Security.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		50000000000000000000000A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000019 /* YuruPager.app */,
+				20000000000000000000001A /* YuruPagerCoreTests.xctest */,
+				20000000000000000000001B /* YuruPagerUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		600000000000000000000001 /* YuruPager */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 800000000000000000000002 /* Build configuration list for PBXNativeTarget "YuruPager" */;
+			buildPhases = (
+				900000000000000000000001 /* Sources */,
+				400000000000000000000001 /* Frameworks */,
+				900000000000000000000002 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = YuruPager;
+			productName = YuruPager;
+			productReference = 200000000000000000000019 /* YuruPager.app */;
+			productType = "com.apple.product-type.application";
+		};
+		600000000000000000000002 /* YuruPagerCoreTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 800000000000000000000003 /* Build configuration list for PBXNativeTarget "YuruPagerCoreTests" */;
+			buildPhases = (
+				900000000000000000000003 /* Sources */,
+				400000000000000000000002 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A00000000000000000000001 /* PBXTargetDependency */,
+			);
+			name = YuruPagerCoreTests;
+			productName = YuruPagerCoreTests;
+			productReference = 20000000000000000000001A /* YuruPagerCoreTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		600000000000000000000003 /* YuruPagerUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 800000000000000000000004 /* Build configuration list for PBXNativeTarget "YuruPagerUITests" */;
+			buildPhases = (
+				900000000000000000000004 /* Sources */,
+				400000000000000000000003 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A00000000000000000000002 /* PBXTargetDependency */,
+			);
+			name = YuruPagerUITests;
+			productName = YuruPagerUITests;
+			productReference = 20000000000000000000001B /* YuruPagerUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		700000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					600000000000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					600000000000000000000002 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = 600000000000000000000001;
+					};
+					600000000000000000000003 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = 600000000000000000000001;
+					};
+				};
+			};
+			buildConfigurationList = 800000000000000000000001 /* Build configuration list for PBXProject "YuruPager" */;
+			compatibilityVersion = "Xcode 15.0";
+			developmentRegion = "zh-Hans";
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+				"zh-Hans",
+			);
+			mainGroup = 500000000000000000000001;
+			productRefGroup = 50000000000000000000000A /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				600000000000000000000001 /* YuruPager */,
+				600000000000000000000002 /* YuruPagerCoreTests */,
+				600000000000000000000003 /* YuruPagerUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		900000000000000000000002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000015 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		900000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000001 /* YuruPagerApp.swift in Sources */,
+				100000000000000000000002 /* Models.swift in Sources */,
+				100000000000000000000003 /* ServerConfiguration.swift in Sources */,
+				100000000000000000000004 /* SubmissionGate.swift in Sources */,
+				100000000000000000000005 /* APIClient.swift in Sources */,
+				100000000000000000000006 /* Conversation.swift in Sources */,
+				100000000000000000000007 /* Labels.swift in Sources */,
+				100000000000000000000019 /* SessionImages.swift in Sources */,
+				10000000000000000000001A /* Markdown.swift in Sources */,
+				100000000000000000000008 /* SecureCookieVault.swift in Sources */,
+				100000000000000000000009 /* LiveSocketClient.swift in Sources */,
+				10000000000000000000000A /* AppStore.swift in Sources */,
+				10000000000000000000000B /* RootView.swift in Sources */,
+				10000000000000000000000C /* LoginView.swift in Sources */,
+				10000000000000000000000D /* Components.swift in Sources */,
+				10000000000000000000000E /* RequestsView.swift in Sources */,
+				10000000000000000000000F /* RequestDetailView.swift in Sources */,
+				100000000000000000000010 /* WorkstationsView.swift in Sources */,
+				100000000000000000000011 /* SessionsView.swift in Sources */,
+				100000000000000000000012 /* SessionDetailView.swift in Sources */,
+				100000000000000000000013 /* UsageView.swift in Sources */,
+				100000000000000000000014 /* MoreView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		900000000000000000000003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000016 /* CoreTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		900000000000000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000017 /* YuruPagerUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A00000000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 600000000000000000000001 /* YuruPager */;
+			targetProxy = 300000000000000000000001 /* PBXContainerItemProxy */;
+		};
+		A00000000000000000000002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 600000000000000000000001 /* YuruPager */;
+			targetProxy = 300000000000000000000002 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		B00000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		B00000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		B00000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = KMRG467X9M;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = YuruPager/Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yurupager.mobile;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		B00000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = KMRG467X9M;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = YuruPager/Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yurupager.mobile;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		B00000000000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yurupager.mobile.coretests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/YuruPager.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/YuruPager";
+			};
+			name = Debug;
+		};
+		B00000000000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yurupager.mobile.coretests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/YuruPager.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/YuruPager";
+			};
+			name = Release;
+		};
+		B00000000000000000000007 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yurupager.mobile.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = YuruPager;
+			};
+			name = Debug;
+		};
+		B00000000000000000000008 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yurupager.mobile.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = YuruPager;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		800000000000000000000001 /* Build configuration list for PBXProject "YuruPager" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B00000000000000000000001 /* Debug */,
+				B00000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		800000000000000000000002 /* Build configuration list for PBXNativeTarget "YuruPager" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B00000000000000000000003 /* Debug */,
+				B00000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		800000000000000000000003 /* Build configuration list for PBXNativeTarget "YuruPagerCoreTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B00000000000000000000005 /* Debug */,
+				B00000000000000000000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		800000000000000000000004 /* Build configuration list for PBXNativeTarget "YuruPagerUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B00000000000000000000007 /* Debug */,
+				B00000000000000000000008 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 700000000000000000000001 /* Project object */;
+}

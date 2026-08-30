@@ -1,0 +1,10 @@
+node_modules
+dist
+coverage
+.git
+.DS_Store
+artifacts
+.yurupager-spike
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
