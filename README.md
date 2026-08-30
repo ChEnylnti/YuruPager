@@ -107,6 +107,46 @@ Connector spike commands (`npm run spike:*`) remain available; see
 [Technical spike commands](#technical-spike-commands). Reference documents live
 under [Documents](#documents).
 
+## Supported agents
+
+The Connector supervises multiple coding agents through the `AgentRuntime`
+fan-out (ADR-024). Discovery degrades by capability (ADR-025), approvals map
+into the shared fail-closed flow (ADR-027), and every adapter passes the
+fake-agent contract suite plus a sanitisation test asserting that raw tool
+input/output never leaves the workstation.
+
+| Agent | Path | Discovery | Approvals | Cancel | Usage | Images | Verification |
+|---|---|---|---|---|---|---|---|
+| Codex | native app-server | global `thread/list` | approve/deny/answer | yes | cumulative snapshots | yes | Alpha deployed |
+| Claude Code | `claude-agent-acp` adapter (ADR-028) | own sessions | permission mapping, fail-closed | yes | unavailable | not yet | contract suite |
+| Gemini CLI | native ACP (`--acp`) | own sessions | permission mapping, fail-closed | yes | unavailable | not yet | contract suite + `spike:gemini-e2e` |
+| Cursor | native `stream-json` (ADR-029) | own sessions | allow/deny control requests | yes | result usage, cumulative | not yet | contract suite |
+| OpenCode | native ACP | own sessions | permission mapping, fail-closed | yes | unavailable | not yet | contract suite |
+| Amp | native ACP | own sessions | permission mapping, fail-closed | yes | unavailable | not yet | contract suite |
+| Crush | native ACP | own sessions | permission mapping, fail-closed | yes | unavailable | not yet | contract suite |
+| Qwen Code | native ACP (`--acp`) | own sessions | permission mapping, fail-closed | yes | unavailable | not yet | contract suite |
+
+"Own sessions" means YuruPager supervises the sessions the Connector itself
+started (ids persisted in Connector SQLite and resumed after restarts); there
+is no intrusive scanning of agent-local transcript files. Enable agents in
+`~/.yurupager/config.json`:
+
+```json
+{
+  "version": 2,
+  "agents": [
+    { "kind": "codex", "command": "codex", "enabled": true },
+    { "kind": "gemini", "command": "", "enabled": true },
+    { "kind": "claude-code", "command": "claude-agent-acp", "enabled": true },
+    { "kind": "cursor", "command": "cursor-agent", "enabled": true }
+  ]
+}
+```
+
+An empty `command` resolves through the built-in presets for `gemini`,
+`claude-code`, `opencode`, `amp`, `crush`, and `qwen-code`; unknown kinds
+without a command fail closed.
+
 ## Connect another Codex workstation
 
 1. Sign in to YuruPager and open **Workstations**.
