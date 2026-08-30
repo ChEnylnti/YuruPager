@@ -47,6 +47,8 @@ test("reports real Codex sessions without copying preview or raw home paths", as
   assert.deepEqual(sessions, [{
     type: "session.upsert",
     threadId: "thread-real",
+    agent: "codex",
+    sessionId: "thread-real",
     projectKey: createHash("sha256").update(projectPath).digest("hex"),
     projectName: "YuruPager",
     projectPath: "~/Documents/YuruPager",
