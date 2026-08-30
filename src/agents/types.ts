@@ -1,6 +1,8 @@
 import type {
   ConnectorPayload,
+  ConnectorSessionStreamMessage,
   ConnectorSessionTitle,
+  SessionStreamFrame,
 } from "@yurupager/shared";
 
 import type {
@@ -36,6 +38,28 @@ export interface AgentDiscoveredSessionSnapshot {
   titles: ConnectorSessionTitle[];
 }
 
+type ConnectorEphemeralMessage = Extract<
+  ConnectorSessionStreamMessage,
+  { type: "session.stream.frame" | "session.stream.error" }
+> | { type: "session.titles.snapshot"; titles: ConnectorSessionTitle[] };
+
+/**
+ * Narrow event surface an AgentRuntime uses to publish sessions, requests,
+ * usage, and ephemeral stream frames. The orchestrator implements it over the
+ * shared cloud client; contract tests record into an in-memory sink.
+ */
+export interface AgentEventSink {
+  /** Reliable, at-least-once payload (sessions, requests, usage). */
+  send(payload: ConnectorPayload, idempotencyKey?: string): void;
+  /** Ephemeral, connection-scoped stream traffic. */
+  sendEphemeral(message: ConnectorEphemeralMessage): void;
+}
+
+export interface StreamFrameSink {
+  frame(subscriptionId: string, sessionId: string, frame: SessionStreamFrame): void;
+  error(subscriptionId: string, sessionId: string, code: "thread_unavailable" | "stream_failed"): void;
+}
+
 /**
  * The consumption surface the connector orchestrator needs from every agent
  * implementation (ADR-024). The orchestrator owns the single shared
@@ -44,6 +68,8 @@ export interface AgentDiscoveredSessionSnapshot {
  */
 export interface AgentRuntime {
   readonly agentId: string;
+  /** Publishes sessions/requests/usage/frames; wired before start(). */
+  attach(sink: AgentEventSink): void;
   /** Capability probe (ADR-027); a throwing probe disables the agent. */
   capabilities(): Promise<AgentCapabilities>;
   start(): Promise<void>;
@@ -57,6 +83,8 @@ export interface AgentRuntime {
   handleSessionCommand(remote: RemoteSessionCommand): Promise<void>;
   handleSessionStream(control: RemoteSessionStreamControl): Promise<void>;
   handleAttachment?(control: RemoteAttachmentControl): Promise<void>;
+  /** Optional cooperative cancel of the agent's active turn (ADR-024). */
+  cancelSession?(threadId: string): Promise<void>;
   /** Called when the shared cloud connection transitions to online. */
   handleCloudOnline(): void;
 }

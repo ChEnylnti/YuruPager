@@ -3,9 +3,6 @@ import type { AgentRuntime } from "../agents/types.js";
 import type {
   ConnectorCloudClient,
   RemoteAttachmentControl,
-  RemoteDecision,
-  RemoteSessionCommand,
-  RemoteSessionStreamControl,
 } from "../transport/connector-cloud-client.js";
 
 export interface MultiAgentRuntimeOptions {
