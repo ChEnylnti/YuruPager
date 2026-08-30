@@ -496,6 +496,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = 1;
+				YURUPAGER_DEFAULT_SERVER_ADDRESS = "";
 			};
 			name = Debug;
 		};
@@ -519,6 +520,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = 1;
+				YURUPAGER_DEFAULT_SERVER_ADDRESS = "";
 			};
 			name = Release;
 		};

@@ -8,7 +8,7 @@
 
 ## 交付状态
 
-YuruPager Web Alpha 已部署在 `https://117.50.192.44/yurupager/`。主站、REST、用户 WSS、Connector WSS、PostgreSQL、响应式 Web/PWA 和原生 iOS 客户端均已形成可运行闭环。真实 Connector 当前在线，并从工作站上报 112 个 Codex 会话。
+YuruPager Web Alpha 已部署在部署环境配置的 origin（本文以 `<deployment-origin>` 占位表示；真实部署地址与凭据不写入仓库）。主站、REST、用户 WSS、Connector WSS、PostgreSQL、响应式 Web/PWA 和原生 iOS 客户端均已形成可运行闭环。真实 Connector 当前在线，并从工作站上报 112 个 Codex 会话。
 
 开发预览隧道已经实现并部署。工作站可通过 `yurupager preview <port>` 显式开放本机 loopback Web 开发端口；HTTP、Vite HMR WebSocket、断线重连和服务端重启恢复均已验证。服务器内部预览网关监听 `127.0.0.1:4301`，Nginx 通过已发布的 `8889` 端口按协议把 TLS 流量路由到预览网关，同时保留现有明文 File Browser。公网双视口验证已通过；HTTP 请求保留 loopback `Origin`，WebSocket Upgrade 不合成 Origin，以兼容 Vite 7 的 HMR 校验，同时不把查看设备的公网 Origin 转发到工作站。
 
@@ -71,7 +71,7 @@ YuruPager Web Alpha 已部署在 `https://117.50.192.44/yurupager/`。主站、R
 
 ## 已知边界与风险
 
-- 当前预览公网入口为 `https://117.50.192.44:8889/`，已通过公网桌面和移动视口验证。该端口由 Nginx 按 TLS/明文协议复用，不能改成只代理预览的独占端口；预览访问仍必须从主站工作站详情发起一次性票据跳转。SSH/root 或已授权的 Linux 账号即可维护 YuruPager，UCloud 登录仅在所有者需要调整云安全组、公网 IP、重启/快照或账单时才需要。
+- 当前预览公网入口为部署环境配置的独立预览 origin（本文以 `<preview-origin>` 占位表示），已通过公网桌面和移动视口验证。该端口由 Nginx 按 TLS/明文协议复用，不能改成只代理预览的独占端口；预览访问仍必须从主站工作站详情发起一次性票据跳转。SSH/root 或已授权的 Linux 账号即可维护 YuruPager，UCloud 登录仅在所有者需要调整云安全组、公网 IP、重启/快照或账单时才需要。
 - 生产 VAPID、订阅登记、失效 endpoint 清理和请求创建派发已经接通；浏览器/操作系统通知权限仍需用户在各设备显式授予，真实厂商 Push 网络的长期送达率需要继续监控。
 - iOS 后台 APNs 需要 Apple Developer Team、Push entitlement、设备注册 API 和 APNs 凭据；当前 Alpha 使用前台快照与实时失效同步。
 - 公网 Alpha 仍使用本地账号认证。生产上线前需要接入 OIDC、密钥托管、备份、迁移编排、限流/监控和正式域名证书。

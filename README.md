@@ -232,22 +232,23 @@ the user, checks the workstation's `can_preview` grant, and issues a short,
 single-use launch ticket for that isolated origin; no public bearer URL or
 workstation inbound port is created.
 
-On the current server deployment, the isolated origin is
-`https://117.50.192.44:8889/`. Nginx uses a protocol-aware listener on this
-already published port: plaintext traffic continues to the existing File
-Browser, while TLS traffic is routed to the YuruPager preview gateway. The
-workstation still needs only outbound HTTPS/WSS; it does not need a public IP,
-an inbound firewall rule, or a port-forwarding command. Maintaining the
-server-side listener does not require access to the UCloud console; only the
-server owner can change cloud security-group rules, public IPs, reboots,
-snapshots, or billing settings.
+On a production deployment, the isolated origin is the configured preview
+origin, for example `https://<preview-origin>:<port>/` (see
+[Deployment configuration](#deployment-configuration)). A protocol-aware
+Nginx listener can share an already published port: plaintext traffic
+continues to an existing service, while TLS traffic is routed to the YuruPager
+preview gateway. The workstation still needs only outbound HTTPS/WSS; it does
+not need a public IP, an inbound firewall rule, or a port-forwarding command.
+Maintaining the server-side listener does not require access to the cloud
+console; only the server owner can change cloud security-group rules, public
+IPs, reboots, snapshots, or billing settings.
 
 1. On the machine running the Web app, start it on loopback and run
    `yurupager preview <port>`.
-2. Sign in at `https://117.50.192.44/yurupager/`, open the paired workstation,
-   and select **开发预览 -> 打开**.
-3. The browser redeems a one-time ticket and opens the app at the `:8889`
-   origin. Do not copy or share a URL containing a ticket.
+2. Sign in at your YuruPager origin, open the paired workstation, and select
+   **开发预览 -> 打开**.
+3. The browser redeems a one-time ticket and opens the app at the isolated
+   preview origin. Do not copy or share a URL containing a ticket.
 
 For example, a Vite app on port `5173` is opened with:
 
@@ -308,6 +309,26 @@ npm run build
 npm run build:connector-package
 ```
 
+## Deployment configuration
+
+No real deployment hosts, IP addresses, or credentials are committed to this
+repository. Everything environment-specific is injected per deployment from
+the following places, and the documentation uses `<deployment-origin>` /
+`<preview-origin>` style placeholders:
+
+- Service secrets and database URLs: `SESSION_SECRET`, `CONNECTOR_TOKEN`,
+  `ALPHA_PASSWORD`, `ADMIN_DATABASE_URL`, `DATABASE_URL`,
+  `CONNECTOR_DATABASE_URL`, and the rest of the template in
+  [.env.example](./.env.example). Keep the real `.env` out of the repository
+  and rotate leaked values immediately.
+- Preview origin: `PREVIEW_PUBLIC_ORIGIN` together with `PREVIEW_ENABLED` and
+  `PREVIEW_GATEWAY_*` (see [.env.example](./.env.example)).
+- Reverse proxy: `deploy/nginx/*.conf` are examples; set `server_name`,
+  certificate paths, and published ports per environment.
+- iOS default server address: the `YURUPAGER_DEFAULT_SERVER_ADDRESS` build
+  setting expands into the app's Info.plist; see
+  [the iOS runbook](./apps/ios/README.md).
+
 ## Single-service Alpha deployment
 
 The production server serves the built Web/PWA and API from one origin. Set a
@@ -334,9 +355,12 @@ or other services.
 
 Open `apps/ios/YuruPager.xcodeproj` with Xcode 16 or newer, select a signing
 Team, and run the shared `YuruPager` Scheme on an iOS 17 Simulator or iPhone.
-The login screen defaults to the public Alpha at
-`https://117.50.192.44/yurupager/`; its server disclosure accepts another
-HTTPS deployment or localhost HTTP for Simulator development.
+The login screen defaults to the address injected at build time through the
+`YURUPAGER_DEFAULT_SERVER_ADDRESS` build setting (see
+[the iOS runbook](./apps/ios/README.md)); without injection it falls back to
+the `https://yurupager.example.com/` example origin. Its server disclosure
+accepts another HTTPS deployment or localhost HTTP for Simulator
+development.
 
 The App uses Keychain for BFF session Cookie recovery and does not persist
 passwords, REST snapshots, request answers, or Codex conversation text. See

@@ -1,7 +1,22 @@
 import Foundation
 
 public struct ServerConfiguration: Equatable, Sendable {
-    public static let defaultAddress = "https://117.50.192.44/yurupager/"
+    /// Resolution order for the pre-filled login address:
+    ///
+    /// 1. The `YuruPagerDefaultServerAddress` Info.plist value, injected at
+    ///    build time from the `YURUPAGER_DEFAULT_SERVER_ADDRESS` build
+    ///    setting (see apps/ios/README.md).
+    /// 2. The example origin below when the setting is empty or absent —
+    ///    for example in `swift build` / `swift run yurupager-core-checks`
+    ///    where there is no app Info.plist.
+    ///
+    /// No real deployment origin is committed to the repository.
+    public static let defaultAddress: String = {
+        let configured = Bundle.main.object(forInfoDictionaryKey: "YuruPagerDefaultServerAddress")
+            as? String
+        let trimmed = (configured ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "https://yurupager.example.com/" : trimmed
+    }()
 
     public let baseURL: URL
 

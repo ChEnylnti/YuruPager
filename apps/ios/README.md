@@ -8,9 +8,22 @@
 2. 打开 `YuruPager.xcodeproj`。
 3. 在 Signing & Capabilities 中选择自己的 Team；真机运行时保持 Bundle Identifier 唯一。
 4. 选择 iPhone Simulator 或已启用开发者模式的 iPhone，运行 `YuruPager` Scheme。
-5. 登录页默认连接 `https://117.50.192.44/yurupager/`。展开“服务器”可改为其他 HTTPS 部署；Simulator 访问本机 Docker 可使用 `http://127.0.0.1:4300/`。
+5. 登录页默认连接“默认服务器地址”（见下文注入说明；未注入时回落到示例 `https://yurupager.example.com/`）。展开“服务器”可改为其他 HTTPS 部署；Simulator 访问本机 Docker 可使用 `http://127.0.0.1:4300/`。
 
 应用不保存密码、请求快照和完整 Codex 对话。登录页的“保持登录”默认开启：BFF 会话 Cookie 由 URLSession 管理，并以 Keychain 作为跨启动恢复存储；关闭后只维持当前运行会话。服务器地址、最近工作空间和保持登录偏好是仅有的 UserDefaults 项。会话正文只在当前前台详情内存中存在。
+
+## 默认服务器地址注入
+
+仓库不包含任何真实部署 origin。登录页的默认地址按以下顺序确定：
+
+1. 构建时注入：Xcode target 构建设置 `YURUPAGER_DEFAULT_SERVER_ADDRESS`
+  （如 `https://yurupager.example.com/`）经 Info.plist 的
+   `YuruPagerDefaultServerAddress` 键展开进应用。
+2. 未注入或为空时，回落到示例值 `https://yurupager.example.com/`；
+   `swift build` / `swift run yurupager-core-checks` 场景没有应用 Info.plist，
+   同样使用该示例值。
+
+“服务器”输入框始终接受任意其他 HTTPS 部署，Simulator 也可使用 localhost HTTP。
 
 ## 验证
 

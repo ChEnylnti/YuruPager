@@ -42,5 +42,7 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+	<key>YuruPagerDefaultServerAddress</key>
+	<string>$(YURUPAGER_DEFAULT_SERVER_ADDRESS)</string>
 </dict>
 </plist>
