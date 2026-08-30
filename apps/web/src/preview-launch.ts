@@ -1,4 +1,5 @@
 import type { PreviewLaunchResult } from "@yurupager/shared";
+import { previewLaunchText } from "./i18n.js";
 
 export interface PreviewTab {
   target: string;
@@ -12,7 +13,7 @@ export function openPreviewTab(previewName: string): PreviewTab | null {
 
   try {
     popup.opener = null;
-    renderPreviewTabStatus(popup, "正在打开开发预览", previewName);
+    renderPreviewTabStatus(popup, previewLaunchText.openingStatus, previewName);
   } catch {
     // A browser may make the newly opened context inaccessible earlier than expected.
   }

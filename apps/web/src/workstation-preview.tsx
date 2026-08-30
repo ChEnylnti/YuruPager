@@ -7,7 +7,7 @@ import type {
 } from "@yurupager/shared";
 
 import { launchPreview, stopPreview } from "./api.js";
-import { errorLabel, formatDate, previewStatusLabel } from "./i18n.js";
+import { errorLabel, formatDate, previewStatusLabel, previewText } from "./i18n.js";
 import { openPreviewTab, renderPreviewTabStatus, submitPreviewLaunch } from "./preview-launch.js";
 
 type PreviewAction = "launching" | "stopping";
@@ -68,7 +68,7 @@ export function WorkstationPreviewSection({
     const tab = openPreviewTab(preview.name);
     if (tab === null) {
       finish(preview.id);
-      const message = "浏览器阻止了新标签页，请允许弹出窗口后重试";
+      const message = previewText.popupBlocked;
       setError(message);
       onToast(message, "error");
       return;
@@ -76,12 +76,12 @@ export function WorkstationPreviewSection({
     try {
       const result = await launchPreview(preview.id);
       submitPreviewLaunch(result, tab.target);
-      onToast("已在新标签页打开开发预览", "success");
+      onToast(previewText.openedToast, "success");
     } catch (reason) {
-      const message = previewActionError(reason, "无法打开开发预览");
+      const message = previewActionError(reason, previewText.openFailed);
       setError(message);
       onToast(message, "error");
-      try { renderPreviewTabStatus(tab.window, "无法打开开发预览", message); } catch { /* inaccessible popup */ }
+      try { renderPreviewTabStatus(tab.window, previewText.openFailed, message); } catch { /* inaccessible popup */ }
     } finally {
       finish(preview.id);
     }
@@ -92,10 +92,10 @@ export function WorkstationPreviewSection({
     try {
       const result = await stopPreview(preview.id);
       setConfirmed((current) => ({ ...current, [preview.id]: result }));
-      onToast("开发预览已停止", "success");
+      onToast(previewText.stoppedToast, "success");
       onChanged();
     } catch (reason) {
-      const message = previewActionError(reason, "无法停止开发预览");
+      const message = previewActionError(reason, previewText.stopFailed);
       setError(message);
       onToast(message, "error");
     } finally {
@@ -106,24 +106,24 @@ export function WorkstationPreviewSection({
   return (
     <section className="entity-section preview-section" aria-labelledby={`preview-heading-${workstationId}`}>
       <div className="preview-section-heading">
-        <h3 id={`preview-heading-${workstationId}`}>开发预览</h3>
-        {capability.enabled && capability.gatewayOrigin !== null && visible.length > 0 && <span>{visible.length} 个</span>}
+        <h3 id={`preview-heading-${workstationId}`}>{previewText.heading}</h3>
+        {capability.enabled && capability.gatewayOrigin !== null && visible.length > 0 && <span>{previewText.countSuffix(visible.length)}</span>}
       </div>
       {!capability.enabled ? (
         <div className="preview-notice" role="status">
           <TerminalSquare size={17} aria-hidden="true" />
-          <span>此服务器未启用开发预览</span>
+          <span>{previewText.serverDisabled}</span>
         </div>
       ) : capability.gatewayOrigin === null ? (
         <div className="preview-notice" role="status">
           <TerminalSquare size={17} aria-hidden="true" />
-          <span>开发预览网关尚未配置</span>
+          <span>{previewText.gatewayMissing}</span>
         </div>
       ) : visible.length === 0 ? (
         <div className="preview-empty">
           <TerminalSquare size={18} aria-hidden="true" />
           <div>
-            <span>此工作站暂无开发预览</span>
+            <span>{previewText.noneForWorkstation}</span>
             <code>{examplePreviewCommand(capability.command)}</code>
           </div>
         </div>
@@ -136,17 +136,17 @@ export function WorkstationPreviewSection({
             const terminal = preview.status === "stopped" || preview.status === "expired";
             const launchDisabled = action !== undefined || preview.status !== "active";
             const statusLabel = previewStatusLabel(status);
-            const launchLabel = action === "launching" ? "正在打开" : "打开";
-            const stopLabel = action === "stopping" ? "正在停止" : "停止";
+            const launchLabel = action === "launching" ? previewText.launching : previewText.openAction;
+            const stopLabel = action === "stopping" ? previewText.stopping : previewText.stopAction;
             return (
               <div className="preview-row" key={preview.id} data-preview-status={status}>
                 <div className="preview-identity">
                   <strong title={preview.name}>{preview.name}</strong>
-                  <code aria-label={`本机端口 ${preview.port}`}>localhost:<b>{preview.port}</b></code>
+                  <code aria-label={previewText.localPortAria(preview.port)}>localhost:<b>{preview.port}</b></code>
                 </div>
                 <div className="preview-state" role="status" aria-label={statusLabel}>
                   <span className={`preview-status preview-status-${status}`}>{statusLabel}</span>
-                  <time dateTime={preview.expiresAt} title={formatDate(preview.expiresAt)}>到期 {formatDate(preview.expiresAt)}</time>
+                  <time dateTime={preview.expiresAt} title={formatDate(preview.expiresAt)}>{previewText.expiresPrefix}{formatDate(preview.expiresAt)}</time>
                 </div>
                 <div className="preview-actions">
                   <button className="secondary-button" type="button" aria-label={launchLabel} disabled={launchDisabled} onClick={() => void open(preview)}>
@@ -187,6 +187,6 @@ function previewActionError(reason: unknown, fallback: string): string {
   const code = typeof reason === "object" && reason !== null && "code" in reason
     ? String((reason as { code?: unknown }).code ?? "")
     : "";
-  if (code === "permission_denied") return "你没有此工作站的开发预览权限";
+  if (code === "permission_denied") return previewText.permissionDenied;
   return errorLabel(reason, fallback);
 }

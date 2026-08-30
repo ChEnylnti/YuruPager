@@ -23,7 +23,7 @@ import type { DecisionInput, RequestSummary } from "@yurupager/shared";
 
 import { ApiError, submitDecision } from "./api.js";
 import { createIdempotencyKey } from "./idempotency.js";
-import { deliveryStatusLabel, errorLabel, formatDate, permissionAccessLabel, requestStatusLabel, riskLabel } from "./i18n.js";
+import { deliveryStatusLabel, errorLabel, formatDate, permissionAccessLabel, requestStatusLabel, riskLabel, requestDetailText, viewsText } from "./i18n.js";
 
 interface RequestDetailProps {
   request: RequestSummary;
@@ -84,19 +84,19 @@ export function RequestDetail({
       closeDialog(false);
       onToast(
         input.decision === "deny"
-          ? "请求已拒绝"
+          ? requestDetailText.toastDenied
           : input.decision === "answer"
-            ? "回答已发送"
-            : "批准已记录",
+            ? requestDetailText.toastAnswerSent
+            : requestDetailText.toastApproved,
       );
     } catch (error) {
       if (error instanceof ApiError && error.code === "decision_conflict") {
         const details = error.details as { request?: RequestSummary } | undefined;
         if (details?.request !== undefined) onRequestChange(details.request);
         closeDialog(false);
-        onToast("另一位协作者已处理此请求", "error");
+        onToast(requestDetailText.toastConflict, "error");
       } else {
-        onToast(errorLabel(error, "无法提交决定"), "error");
+        onToast(errorLabel(error, requestDetailText.submitFailed), "error");
       }
     } finally {
       submittingRef.current = false;
@@ -117,69 +117,69 @@ export function RequestDetail({
   return (
     <article className="request-detail" aria-labelledby="request-heading">
       <header className="detail-toolbar">
-        <button className="icon-button mobile-back" type="button" onClick={onBack} aria-label="返回请求列表" title="返回请求列表">
+        <button className="icon-button mobile-back" type="button" onClick={onBack} aria-label={requestDetailText.backToRequests} title={requestDetailText.backToRequests}>
           <ArrowLeft aria-hidden="true" size={18} />
         </button>
         <div className="detail-title-block">
-          <p className="eyebrow">{request.kind === "question" ? "代理提问" : "审批请求"}</p>
+          <p className="eyebrow">{request.kind === "question" ? requestDetailText.eyebrowQuestion : requestDetailText.eyebrowApproval}</p>
           <h2 id="request-heading">{request.projectName}</h2>
         </div>
         <StatusBadge status={request.status} />
       </header>
 
-      <div className="identity-strip" aria-label="请求标识">
-        <Identity label="工作区" value={request.workspaceName} />
-        <Identity label="工作站" value={request.workstationName} />
-        <Identity label="项目" value={request.projectName} />
-        <Identity label="会话" value={request.sessionId.slice(0, 8)} />
+      <div className="identity-strip" aria-label={requestDetailText.identityAria}>
+        <Identity label={requestDetailText.idWorkspace} value={request.workspaceName} />
+        <Identity label={requestDetailText.idWorkstation} value={request.workstationName} />
+        <Identity label={requestDetailText.idProject} value={request.projectName} />
+        <Identity label={requestDetailText.idSession} value={request.sessionId.slice(0, 8)} />
       </div>
 
-      <div className="detail-scroll" role="region" aria-label="请求详情" tabIndex={0}>
+      <div className="detail-scroll" role="region" aria-label={requestDetailText.detailAria} tabIndex={0}>
         {request.deliveryStatus === "sent_unknown" && (
           <div className="critical-notice" role="alert">
             <ShieldAlert aria-hidden="true" size={20} />
             <div>
-              <strong>执行结果未知</strong>
-              <p>已阻止自动重发。请在工作站上核对该决定。</p>
+              <strong>{requestDetailText.sentUnknownTitle}</strong>
+              <p>{requestDetailText.sentUnknownBody}</p>
             </div>
           </div>
         )}
         {!online && request.status === "pending" && (
           <div className="offline-notice" role="status">
             <WifiOff aria-hidden="true" size={18} />
-            <span>当前离线。恢复服务器快照前无法提交决定。</span>
+            <span>{requestDetailText.offlineNotice}</span>
           </div>
         )}
 
         <section className="detail-section" aria-labelledby="context-heading">
           <div className="section-heading-row">
-            <h3 id="context-heading">请求上下文</h3>
+            <h3 id="context-heading">{requestDetailText.contextHeading}</h3>
             <span className={`risk risk-${request.risk}`}>
               {request.risk === "high" && <AlertTriangle aria-hidden="true" size={14} />}
-              {riskLabel(request.risk)}风险
+              {riskLabel(request.risk)}{viewsText.riskSuffix}
             </span>
           </div>
           <dl className="facts-grid">
-            <Fact label="工具" value={request.tool} />
-            <Fact label="类别" value={request.category} />
-            <Fact label="发起人" value={request.sessionInitiatorName ?? "未知来源"} />
-            <Fact label="指派给" value={request.assignedToName ?? "未指派"} />
+            <Fact label={requestDetailText.factTool} value={request.tool} />
+            <Fact label={requestDetailText.factCategory} value={request.category} />
+            <Fact label={requestDetailText.factInitiator} value={request.sessionInitiatorName ?? requestDetailText.unknownSource} />
+            <Fact label={requestDetailText.factAssignedTo} value={request.assignedToName ?? requestDetailText.unassigned} />
           </dl>
           {request.context.reason !== undefined && (
             <div className="context-copy">
-              <span>原因</span>
+              <span>{requestDetailText.reasonLabel}</span>
               <p>{request.context.reason}</p>
             </div>
           )}
           {request.context.command !== undefined && (
             <div className="command-block">
-              <span>命令</span>
+              <span>{requestDetailText.commandLabel}</span>
               <code>{request.context.command}</code>
             </div>
           )}
           {request.context.cwd !== undefined && (
             <div className="context-copy">
-              <span>工作目录</span>
+              <span>{requestDetailText.cwdLabel}</span>
               <p className="mono wrap-anywhere">{request.context.cwd}</p>
             </div>
           )}
@@ -218,33 +218,33 @@ export function RequestDetail({
                       aria-describedby={question.isSecret ? `${question.id}-secret` : undefined}
                     />
                   )}
-                  {question.isSecret && <p id={`${question.id}-secret`} className="field-error">敏感问题答案必须在工作站上输入。</p>}
+                  {question.isSecret && <p id={`${question.id}-secret`} className="field-error">{requestDetailText.secretNotice}</p>}
                 </fieldset>
               ))}
               <button className="primary-button" type="submit" disabled={!actionable || !answersComplete || submitting}>
                 {submitting ? <LoaderCircle className="spinner" aria-hidden="true" size={17} /> : <HelpCircle aria-hidden="true" size={17} />}
-                {submitting ? "正在提交回答" : "提交回答"}
+                {submitting ? requestDetailText.submittingAnswer : requestDetailText.submitAnswer}
               </button>
             </form>
           )}
         </section>
 
         <section className="detail-section" aria-labelledby="handling-heading">
-          <h3 id="handling-heading">处理信息</h3>
+          <h3 id="handling-heading">{requestDetailText.handlingHeading}</h3>
           <dl className="facts-grid">
-            <Fact label="请求时间" value={formatDate(request.requestedAt)} />
-            <Fact label="过期时间" value={formatDate(request.expiresAt)} />
-            <Fact label="传送状态" value={deliveryStatusLabel(request.deliveryStatus)} />
-            <Fact label="最终操作人" value={request.decidedByName ?? "未处理"} />
+            <Fact label={requestDetailText.factRequestedAt} value={formatDate(request.requestedAt)} />
+            <Fact label={requestDetailText.factExpiresAt} value={formatDate(request.expiresAt)} />
+            <Fact label={requestDetailText.factDeliveryStatus} value={deliveryStatusLabel(request.deliveryStatus)} />
+            <Fact label={requestDetailText.factFinalOperator} value={request.decidedByName ?? requestDetailText.undecided} />
           </dl>
           {request.decisionReason !== null && (
-            <div className="context-copy"><span>拒绝原因</span><p>{request.decisionReason}</p></div>
+            <div className="context-copy"><span>{requestDetailText.denyReasonLabel}</span><p>{request.decisionReason}</p></div>
           )}
         </section>
       </div>
 
       {request.kind === "approval" && (
-        <footer className="decision-bar" aria-label="请求操作">
+        <footer className="decision-bar" aria-label={requestDetailText.decisionBarAria}>
           {request.status === "pending" ? (
             <>
               <button
@@ -254,7 +254,7 @@ export function RequestDetail({
                 disabled={!actionable || submitting}
                 onClick={() => setDialog({ kind: "deny", idempotencyKey: createIdempotencyKey() })}
               >
-                <X aria-hidden="true" size={17} /> 拒绝
+                <X aria-hidden="true" size={17} /> {requestDetailText.denyAction}
               </button>
               <button
                 ref={approveRef}
@@ -263,7 +263,7 @@ export function RequestDetail({
                 disabled={!actionable || submitting}
                 onClick={() => setDialog({ kind: "approve", idempotencyKey: createIdempotencyKey() })}
               >
-                <Check aria-hidden="true" size={17} /> 批准
+                <Check aria-hidden="true" size={17} /> {requestDetailText.approveAction}
               </button>
             </>
           ) : (
@@ -294,7 +294,7 @@ export function RequestDetail({
         />
       )}
       <div className="sr-only" aria-live="polite">
-        {submitting ? "正在提交决定" : `${requestStatusLabel(request.status)}，${request.decidedByName ?? "尚未处理"}`}
+        {submitting ? requestDetailText.submittingDecision : `${requestStatusLabel(request.status)}，${request.decidedByName ?? requestDetailText.notYetHandled}`}
       </div>
     </article>
   );
@@ -346,11 +346,11 @@ function DecisionDialog({
         <div className="dialog-icon" aria-hidden="true">
           {kind === "deny" ? <X size={21} /> : highRisk ? <ShieldAlert size={21} /> : <Check size={21} />}
         </div>
-        <h2 id={titleId}>{kind === "deny" ? "拒绝此请求？" : highRisk ? "确认高风险批准" : "批准此请求？"}</h2>
+        <h2 id={titleId}>{kind === "deny" ? requestDetailText.dialogTitleDeny : highRisk ? requestDetailText.dialogTitleHighRisk : requestDetailText.dialogTitleApprove}</h2>
         <p>
           {kind === "deny"
-            ? "代理将不会执行此操作。拒绝原因会与协作者共享。"
-            : `此决定将发送到 ${request.workstationName}，Codex 接收后无法撤回。`}
+            ? requestDetailText.dialogDenyBody
+            : requestDetailText.dialogApproveBody(request.workstationName)}
         </p>
         <div className="dialog-context">
           <span>{request.workspaceName}</span>
@@ -358,12 +358,12 @@ function DecisionDialog({
         </div>
         {kind === "deny" && (
           <label className="field-label">
-            原因
+            {requestDetailText.reasonLabel}
             <textarea autoFocus rows={3} value={reason} onChange={(event) => onReason(event.target.value)} disabled={submitting} />
           </label>
         )}
         <div className="dialog-actions">
-          <button ref={cancelRef} className="secondary-button" type="button" onClick={requestClose} disabled={submitting}>取消</button>
+          <button ref={cancelRef} className="secondary-button" type="button" onClick={requestClose} disabled={submitting}>{viewsText.cancel}</button>
           <button
             className={kind === "deny" || highRisk ? "danger-button" : "primary-button"}
             type="button"
@@ -371,7 +371,7 @@ function DecisionDialog({
             onClick={onConfirm}
           >
             {submitting && <LoaderCircle className="spinner" aria-hidden="true" size={17} />}
-            {submitting ? "提交中" : kind === "deny" ? "提交拒绝" : "确认批准"}
+            {submitting ? requestDetailText.submitting : kind === "deny" ? requestDetailText.submitDeny : requestDetailText.confirmApprove}
           </button>
         </div>
       </div>
@@ -416,8 +416,8 @@ function Permissions({ request }: { request: RequestSummary }) {
   const permissions = request.context.requestedPermissions;
   return (
     <div className="permissions-block">
-      <span>请求权限</span>
-      {permissions?.network === true && <p>网络访问</p>}
+      <span>{requestDetailText.permissionsLabel}</span>
+      {permissions?.network === true && <p>{requestDetailText.networkAccess}</p>}
       {permissions?.fileSystem?.map((entry) => (
         <p key={`${entry.access}:${entry.path}`} className="mono wrap-anywhere">{permissionAccessLabel(entry.access)}：{entry.path}</p>
       ))}
@@ -438,9 +438,9 @@ export function StatusBadge({ status }: { status: RequestSummary["status"] }) {
 }
 
 function finalStateCopy(request: RequestSummary): string {
-  if (request.status === "approved") return `已批准${request.decidedByName === null ? "" : `，操作人：${request.decidedByName}`}`;
-  if (request.status === "denied") return `已拒绝${request.decidedByName === null ? "" : `，操作人：${request.decidedByName}`}`;
-  if (request.status === "interrupted") return "回合已中断，旧审批已取消。";
-  if (request.status === "expired") return "请求已过期，未执行任何操作。";
+  if (request.status === "approved") return requestDetailText.finalApproved(request.decidedByName);
+  if (request.status === "denied") return requestDetailText.finalDenied(request.decidedByName);
+  if (request.status === "interrupted") return requestDetailText.finalInterrupted;
+  if (request.status === "expired") return requestDetailText.finalExpired;
   return requestStatusLabel(request.status);
 }

@@ -33,6 +33,7 @@ import type {
 import type { LiveChannel } from "./live-channel.js";
 import { ImageAssemblyStore } from "./image-assembly.js";
 import { MarkdownMessage } from "./markdown-message.js";
+import { timelineText } from "./i18n.js";
 import { TransitionText } from "./transition-text.js";
 
 export interface TimelineMessage {
@@ -104,7 +105,7 @@ export function timelineReducer(state: TimelineState, action: TimelineAction): T
         : action.type === "image.ready"
           ? readyTimelineImage(entry, action.url)
           : failedTimelineImage(entry, action.code)),
-      announcement: action.type === "image.ready" ? "图片已加载" : "图片加载失败",
+      announcement: action.type === "image.ready" ? timelineText.imageReadyAnnouncement : timelineText.imageFailedAnnouncement,
     };
   }
   if (action.type === "status") {
@@ -119,7 +120,7 @@ export function timelineReducer(state: TimelineState, action: TimelineAction): T
   const frame = action.frame;
   if (frame.kind === "history.start") return { status: "loading", entries: [], turns: [], announcement: "" };
   if (frame.kind === "history.complete") {
-    return { ...state, status: "live", announcement: state.entries.length === 0 ? "会话已同步，暂无消息" : "会话已同步" };
+    return { ...state, status: "live", announcement: state.entries.length === 0 ? timelineText.syncedNoMessages : timelineText.syncedAnnouncement };
   }
   if (frame.kind === "turn.status") {
     return { ...state, turns: updateTurn(state.turns, frame.turnId, frame.status) };
@@ -161,7 +162,7 @@ export function timelineReducer(state: TimelineState, action: TimelineAction): T
       entries: index === -1
         ? [...state.entries, failed]
         : state.entries.map((entry, entryIndex) => entryIndex === index ? failed : entry),
-      announcement: "图片加载失败",
+      announcement: timelineText.imageFailedAnnouncement,
     };
   }
   if (frame.kind === "image.chunk" || frame.kind === "image.complete") return state;
@@ -214,7 +215,7 @@ export function timelineReducer(state: TimelineState, action: TimelineAction): T
   return {
     ...state,
     entries: updateMessage(state.entries, frame.messageId, (message) => ({ ...message, complete: true })),
-    announcement: completed?.role === "assistant" ? "Codex 回复已完成" : state.announcement,
+    announcement: completed?.role === "assistant" ? timelineText.assistantReplyComplete : state.announcement,
   };
 }
 
@@ -345,8 +346,8 @@ export function SessionTimeline({
   return (
     <section className="session-timeline" aria-labelledby={`timeline-${sessionId}`}>
       <header className="timeline-toolbar">
-        <div className="timeline-title"><MessageSquareText size={16} aria-hidden="true" /><h3 id={`timeline-${sessionId}`}>对话</h3></div>
-        <div className="timeline-statuses" aria-label="会话状态">
+        <div className="timeline-title"><MessageSquareText size={16} aria-hidden="true" /><h3 id={`timeline-${sessionId}`}>{timelineText.conversationHeading}</h3></div>
+        <div className="timeline-statuses" aria-label={timelineText.statusesAria}>
           <StreamStatus status={state.status} />
           <TurnStatus turn={latestTurn} />
         </div>
@@ -355,13 +356,13 @@ export function SessionTimeline({
         ref={scrollRef}
         className="timeline-scroll"
         role="log"
-        aria-label="Codex 会话消息"
+        aria-label={timelineText.logAria}
         aria-live="off"
         tabIndex={0}
         onScroll={updateFollowing}
       >
         {unavailable ? <TimelineState status={state.status} onRetry={subscribe} /> : state.entries.length === 0 ? (
-          <div className="timeline-empty"><MessageSquareText size={22} aria-hidden="true" /><p>当前会话暂无文本消息</p></div>
+          <div className="timeline-empty"><MessageSquareText size={22} aria-hidden="true" /><p>{timelineText.noMessages}</p></div>
         ) : state.entries.map((entry) => entry.kind === "message"
           ? <MessageRow key={`message-${entry.id}`} message={entry} />
           : entry.kind === "activity"
@@ -373,7 +374,7 @@ export function SessionTimeline({
       </div>
       {!following && state.entries.length > 0 && (
         <button className="timeline-latest secondary-button" type="button" onClick={jumpToLatest}>
-          <ArrowDown size={15} aria-hidden="true" />回到最新
+          <ArrowDown size={15} aria-hidden="true" />{timelineText.backToLatest}
         </button>
       )}
       <p className="sr-only" aria-live="polite" aria-atomic="true">{state.announcement}</p>
@@ -391,19 +392,19 @@ export function SessionTimeline({
 }
 
 function ImageRow({ image, onOpen, onRetry }: { image: TimelineImage; onOpen(trigger: HTMLButtonElement): void; onRetry(): void }) {
-  const actor = image.role === "user" ? "你" : "Codex";
+  const actor = image.role === "user" ? timelineText.you : timelineText.codex;
   return (
     <article className={`timeline-image timeline-${image.role}`} data-image-id={image.id}>
-      <header><strong>{actor}</strong><span>图片</span></header>
+      <header><strong>{actor}</strong><span>{timelineText.imageCaption}</span></header>
       <div className={`timeline-image-slot image-${image.state} t-skel ${image.state === "loading" ? "" : "is-revealed"}`}>
         <div className={`timeline-image-loading t-skel-skeleton ${image.state === "loading" ? "is-pulsing" : ""}`} role={image.state === "loading" ? "status" : undefined} aria-hidden={image.state !== "loading"}>
-          <ImageIcon size={22} aria-hidden="true" /><span>正在校验图片</span>
+          <ImageIcon size={22} aria-hidden="true" /><span>{timelineText.verifyingImage}</span>
         </div>
         <div className="t-skel-content">
-          {image.state === "failed" && <div className="timeline-image-error" role="status"><ImageOff size={22} aria-hidden="true" /><span>{imageErrorLabel(image.errorCode)}</span><button className="secondary-button" type="button" onClick={onRetry}><RefreshCw size={14} aria-hidden="true" />重新加载</button></div>}
+          {image.state === "failed" && <div className="timeline-image-error" role="status"><ImageOff size={22} aria-hidden="true" /><span>{imageErrorLabel(image.errorCode)}</span><button className="secondary-button" type="button" onClick={onRetry}><RefreshCw size={14} aria-hidden="true" />{timelineText.reload}</button></div>}
           {image.state === "ready" && image.url !== undefined && (
-            <button type="button" className="timeline-image-open" onClick={(event) => onOpen(event.currentTarget)} aria-label={`查看${actor}的图片`} title="查看图片">
-              <img src={image.url} alt={`${actor}的图片`} />
+            <button type="button" className="timeline-image-open" onClick={(event) => onOpen(event.currentTarget)} aria-label={timelineText.viewImageBy(actor)} title={timelineText.viewImage}>
+              <img src={image.url} alt={timelineText.imageAltBy(actor)} />
               <span aria-hidden="true"><ZoomIn size={17} /></span>
             </button>
           )}
@@ -452,9 +453,9 @@ function ImageViewer({ image, onClose }: { image: TimelineImage; onClose(): void
     <div className="image-viewer" role="presentation" onMouseDown={(event) => {
       if (event.target === event.currentTarget) requestClose();
     }}>
-      <div className={`image-viewer-dialog t-modal ${motionState === "open" ? "is-open" : motionState === "closing" ? "is-closing" : ""}`} role="dialog" aria-modal="true" aria-label={image.role === "user" ? "查看你发送的图片" : "查看 Codex 返回的图片"}>
-        <button ref={closeRef} className="icon-button image-viewer-close" type="button" onClick={requestClose} aria-label="关闭图片" title="关闭图片"><X size={21} aria-hidden="true" /></button>
-        {image.url !== undefined && <img src={image.url} alt={image.role === "user" ? "你发送的图片" : "Codex 返回的图片"} />}
+      <div className={`image-viewer-dialog t-modal ${motionState === "open" ? "is-open" : motionState === "closing" ? "is-closing" : ""}`} role="dialog" aria-modal="true" aria-label={image.role === "user" ? timelineText.viewOwnImage : timelineText.viewCodexImage}>
+        <button ref={closeRef} className="icon-button image-viewer-close" type="button" onClick={requestClose} aria-label={timelineText.closeImage} title={timelineText.closeImage}><X size={21} aria-hidden="true" /></button>
+        {image.url !== undefined && <img src={image.url} alt={image.role === "user" ? timelineText.ownImageAlt : timelineText.codexImageAlt} />}
       </div>
     </div>
   );
@@ -493,19 +494,19 @@ function ActivityRow({ activity }: { activity: TimelineActivity }) {
 }
 
 function activityStatusLabel(activity: TimelineActivity): string {
-  if (activity.status === "in_progress") return `正在${activity.label}`;
-  if (activity.status === "completed") return `已${activity.label}`;
-  if (activity.status === "cancelled") return `${activity.label}已取消`;
-  return `${activity.label}失败`;
+  if (activity.status === "in_progress") return timelineText.activityInProgress(activity.label);
+  if (activity.status === "completed") return timelineText.activityCompleted(activity.label);
+  if (activity.status === "cancelled") return timelineText.activityCancelled(activity.label);
+  return timelineText.activityFailed(activity.label);
 }
 
 function MessageRow({ message }: { message: TimelineMessage }) {
   return (
     <article className={`timeline-message timeline-${message.role}`} data-message-id={message.id}>
       <header>
-        <strong>{message.role === "user" ? "你" : "Codex"}</strong>
-        {message.role === "assistant" && message.phase === "commentary" && <span>过程</span>}
-        {!message.complete && message.role === "assistant" && <LoaderCircle className="spinner" size={13} aria-label="正在回复" />}
+        <strong>{message.role === "user" ? timelineText.you : timelineText.codex}</strong>
+        {message.role === "assistant" && message.phase === "commentary" && <span>{timelineText.commentaryPhase}</span>}
+        {!message.complete && message.role === "assistant" && <LoaderCircle className="spinner" size={13} aria-label={timelineText.replyingAria} />}
       </header>
       {message.role === "assistant"
         ? <MarkdownMessage source={message.text} />
@@ -515,21 +516,21 @@ function MessageRow({ message }: { message: TimelineMessage }) {
 }
 
 function StreamStatus({ status }: { status: SessionStreamState }) {
-  const label = status === "live" ? "实时" : status === "loading" ? "同步中" : status === "connector_offline" ? "工作站离线" : status === "denied" ? "无权限" : "连接异常";
+  const label = status === "live" ? timelineText.streamLive : status === "loading" ? timelineText.streamLoading : status === "connector_offline" ? timelineText.streamOffline : status === "denied" ? timelineText.streamDenied : timelineText.streamError;
   return <span className={`stream-status stream-${status}`}>{status === "loading" && <LoaderCircle className="spinner" size={12} aria-hidden="true" />}<TransitionText value={label} /><span className="sr-only">{label}</span></span>;
 }
 
 function TurnStatus({ turn }: { turn: TimelineTurn | undefined }) {
   const status = turn?.status ?? "idle";
   const label = status === "in_progress"
-    ? "当前回合运行中"
+    ? timelineText.turnInProgress
     : status === "completed"
-      ? "上一回合已完成"
+      ? timelineText.turnCompleted
       : status === "failed"
-        ? "上一回合失败"
+        ? timelineText.turnFailed
         : status === "interrupted"
-          ? "上一回合已中断"
-          : "尚未开始回合";
+          ? timelineText.turnInterrupted
+          : timelineText.turnIdle;
   const Icon = status === "in_progress"
     ? LoaderCircle
     : status === "completed"
@@ -540,7 +541,7 @@ function TurnStatus({ turn }: { turn: TimelineTurn | undefined }) {
           ? Ban
           : Clock3;
   return (
-    <span className={`turn-status turn-${status}`} role="status" aria-label={`回合状态：${label}`}>
+    <span className={`turn-status turn-${status}`} role="status" aria-label={timelineText.turnStatusAria(label)}>
       <Icon className={status === "in_progress" ? "spinner" : undefined} size={12} aria-hidden="true" />
       <span>{label}</span>
     </span>
@@ -548,10 +549,10 @@ function TurnStatus({ turn }: { turn: TimelineTurn | undefined }) {
 }
 
 function TimelineState({ status, onRetry }: { status: SessionStreamState; onRetry(): void }) {
-  if (status === "loading") return <div className="timeline-empty" role="status"><LoaderCircle className="spinner" size={22} aria-hidden="true" /><p>正在从工作站同步会话</p></div>;
-  if (status === "connector_offline") return <div className="timeline-empty" role="status"><WifiOff size={22} aria-hidden="true" /><p>工作站离线，暂时无法读取对话</p></div>;
-  if (status === "denied") return <div className="timeline-empty" role="status"><LockKeyhole size={22} aria-hidden="true" /><p>没有查看此会话的权限</p></div>;
-  return <div className="timeline-empty" role="status"><RefreshCw size={22} aria-hidden="true" /><p>会话同步失败</p><button className="secondary-button" type="button" onClick={onRetry}><RefreshCw size={14} aria-hidden="true" />重试</button></div>;
+  if (status === "loading") return <div className="timeline-empty" role="status"><LoaderCircle className="spinner" size={22} aria-hidden="true" /><p>{timelineText.syncInProgress}</p></div>;
+  if (status === "connector_offline") return <div className="timeline-empty" role="status"><WifiOff size={22} aria-hidden="true" /><p>{timelineText.offlineBody}</p></div>;
+  if (status === "denied") return <div className="timeline-empty" role="status"><LockKeyhole size={22} aria-hidden="true" /><p>{timelineText.deniedBody}</p></div>;
+  return <div className="timeline-empty" role="status"><RefreshCw size={22} aria-hidden="true" /><p>{timelineText.syncFailed}</p><button className="secondary-button" type="button" onClick={onRetry}><RefreshCw size={14} aria-hidden="true" />{timelineText.retry}</button></div>;
 }
 
 function updateMessage(
@@ -571,10 +572,10 @@ function updateTurn(turns: TimelineTurn[], turnId: string, status: ConversationT
 }
 
 function statusAnnouncement(status: SessionStreamState): string {
-  if (status === "live") return "会话已连接";
-  if (status === "connector_offline") return "工作站离线，无法读取对话";
-  if (status === "denied") return "没有查看此会话的权限";
-  if (status === "error") return "会话同步失败";
+  if (status === "live") return timelineText.liveAnnouncement;
+  if (status === "connector_offline") return timelineText.offlineAnnouncement;
+  if (status === "denied") return timelineText.deniedAnnouncement;
+  if (status === "error") return timelineText.errorAnnouncement;
   return "";
 }
 
@@ -585,12 +586,12 @@ function imageErrorCode(error: unknown): string {
 }
 
 function imageErrorLabel(code: string | undefined): string {
-  if (code === "image_unavailable") return "图片在工作站上不可用";
-  if (code === "image_too_large") return "图片超过 5 MiB，无法显示";
-  if (code === "unsupported_image") return "图片格式不受支持";
-  if (code === "image_hash_mismatch") return "图片完整性校验失败";
-  if (code === "missing_image_chunk" || code === "image_length_mismatch") return "图片传输不完整";
-  return "图片暂时无法显示";
+  if (code === "image_unavailable") return timelineText.imageUnavailable;
+  if (code === "image_too_large") return timelineText.imageTooLarge;
+  if (code === "unsupported_image") return timelineText.imageUnsupported;
+  if (code === "image_hash_mismatch") return timelineText.imageIntegrityFailed;
+  if (code === "missing_image_chunk" || code === "image_length_mismatch") return timelineText.imageIncomplete;
+  return timelineText.imageUndisplayable;
 }
 
 function readyTimelineImage(image: TimelineImage, url: string): TimelineImage {

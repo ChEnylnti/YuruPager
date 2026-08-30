@@ -1,7 +1,7 @@
 import { BellOff, BellRing, Check, LoaderCircle, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
-import { errorLabel } from "./i18n.js";
+import { errorLabel, pushMenuText } from "./i18n.js";
 import {
   disablePushNotifications,
   enablePushNotifications,
@@ -33,7 +33,7 @@ export function PushNotificationMenu({ userId, onToast }: {
     void inspectPushNotifications()
       .then((next) => { if (current) setState(next); })
       .catch((error: unknown) => {
-        if (current) setState({ kind: "error", message: errorLabel(error, "无法读取通知设置"), subscribed: false });
+        if (current) setState({ kind: "error", message: errorLabel(error, pushMenuText.loadFailed), subscribed: false });
       });
     return () => { current = false; };
   }, [userId]);
@@ -91,9 +91,9 @@ export function PushNotificationMenu({ userId, onToast }: {
     try {
       const next = await enablePushNotifications();
       setState(next);
-      if (next.kind === "subscribed") onToast("此设备已开启待办通知");
+      if (next.kind === "subscribed") onToast(pushMenuText.enabledToast);
     } catch (error) {
-      const message = errorLabel(error, "无法开启通知");
+      const message = errorLabel(error, pushMenuText.enableFailed);
       setState({ kind: "error", message, subscribed: false });
       onToast(message, "error");
     } finally {
@@ -106,9 +106,9 @@ export function PushNotificationMenu({ userId, onToast }: {
     try {
       const next = await disablePushNotifications();
       setState(next);
-      onToast("此设备已关闭待办通知");
+      onToast(pushMenuText.disabledToast);
     } catch (error) {
-      const message = errorLabel(error, "无法关闭通知");
+      const message = errorLabel(error, pushMenuText.disableFailed);
       setState({ kind: "error", message, subscribed: true });
       onToast(message, "error");
     } finally {
@@ -123,7 +123,7 @@ export function PushNotificationMenu({ userId, onToast }: {
           ref={triggerRef}
           className="icon-button t-tt-trigger notification-trigger"
           type="button"
-          aria-label={subscribed ? "通知已开启" : "通知设置"}
+          aria-label={subscribed ? pushMenuText.onLabel : pushMenuText.settingsLabel}
           aria-describedby={tooltipId}
           aria-haspopup="dialog"
           aria-expanded={motion === "open"}
@@ -135,7 +135,7 @@ export function PushNotificationMenu({ userId, onToast }: {
           </span>
           <span className="notification-enabled-dot" data-open={subscribed} aria-hidden="true" />
         </button>
-        <span className="t-tt" id={tooltipId} role="tooltip">{subscribed ? "通知已开启" : "通知设置"}</span>
+        <span className="t-tt" id={tooltipId} role="tooltip">{subscribed ? pushMenuText.onLabel : pushMenuText.settingsLabel}</span>
       </span>
       {motion !== "closed" && (
         <div
@@ -147,13 +147,13 @@ export function PushNotificationMenu({ userId, onToast }: {
           aria-labelledby={titleId}
           tabIndex={-1}
         >
-          <header><div><p className="eyebrow">此设备</p><h2 id={titleId}>待办通知</h2></div><button className="icon-button" type="button" onClick={closeMenu} aria-label="关闭通知设置"><X size={16} aria-hidden="true" /></button></header>
+          <header><div><p className="eyebrow">{pushMenuText.eyebrow}</p><h2 id={titleId}>{pushMenuText.heading}</h2></div><button className="icon-button" type="button" onClick={closeMenu} aria-label={pushMenuText.closeAria}><X size={16} aria-hidden="true" /></button></header>
           <PushStateBody state={state} />
           <div className="notification-menu-actions">
             {subscribed ? (
-              <button className="secondary-button" type="button" onClick={() => void disable()} disabled={busy}>{operation === "disable" && <LoaderCircle className="spinner" size={15} aria-hidden="true" />}{operation === "disable" ? "正在关闭" : "关闭通知"}</button>
+              <button className="secondary-button" type="button" onClick={() => void disable()} disabled={busy}>{operation === "disable" && <LoaderCircle className="spinner" size={15} aria-hidden="true" />}{operation === "disable" ? pushMenuText.disabling : pushMenuText.disableAction}</button>
             ) : state.kind === "available" || state.kind === "error" ? (
-              <button className="primary-button" type="button" onClick={() => void enable()} disabled={busy}>{operation === "enable" && <LoaderCircle className="spinner" size={15} aria-hidden="true" />}{operation === "enable" ? "正在开启" : "开启通知"}</button>
+              <button className="primary-button" type="button" onClick={() => void enable()} disabled={busy}>{operation === "enable" && <LoaderCircle className="spinner" size={15} aria-hidden="true" />}{operation === "enable" ? pushMenuText.enabling : pushMenuText.enableAction}</button>
             ) : null}
           </div>
         </div>
@@ -163,13 +163,13 @@ export function PushNotificationMenu({ userId, onToast }: {
 }
 
 function PushStateBody({ state }: { state: PushNotificationState }) {
-  if (state.kind === "loading") return <div className="notification-state" role="status"><LoaderCircle className="spinner" size={18} aria-hidden="true" /><div><strong>正在同步设置</strong><p>等待浏览器和服务器确认。</p></div></div>;
-  if (state.kind === "subscribed") return <div className="notification-state is-on" role="status"><Check size={18} aria-hidden="true" /><div><strong>通知已开启</strong><p>新待办会以最小披露通知唤醒此设备。</p></div></div>;
-  if (state.kind === "denied") return <div className="notification-state" role="status"><BellOff size={18} aria-hidden="true" /><div><strong>浏览器已阻止通知</strong><p>请在浏览器或系统设置中允许后重新打开此菜单。</p></div></div>;
-  if (state.kind === "unsupported") return <div className="notification-state" role="status"><BellOff size={18} aria-hidden="true" /><div><strong>当前浏览器不支持</strong><p>请使用安装到主屏幕的 iOS PWA 或支持 Web Push 的浏览器。</p></div></div>;
-  if (state.kind === "server_disabled") return <div className="notification-state" role="status"><BellOff size={18} aria-hidden="true" /><div><strong>服务器尚未启用</strong><p>待办仍会在打开应用后从快照恢复。</p></div></div>;
-  if (state.kind === "error") return <div className="notification-state is-error" role="alert"><BellOff size={18} aria-hidden="true" /><div><strong>通知设置未完成</strong><p>{state.message}</p></div></div>;
-  return <div className="notification-state"><BellRing size={18} aria-hidden="true" /><div><strong>通知未开启</strong><p>通知只提示有新待办，不显示命令、项目或对话内容。</p></div></div>;
+  if (state.kind === "loading") return <div className="notification-state" role="status"><LoaderCircle className="spinner" size={18} aria-hidden="true" /><div><strong>{pushMenuText.syncingTitle}</strong><p>{pushMenuText.syncingBody}</p></div></div>;
+  if (state.kind === "subscribed") return <div className="notification-state is-on" role="status"><Check size={18} aria-hidden="true" /><div><strong>{pushMenuText.subscribedTitle}</strong><p>{pushMenuText.subscribedBody}</p></div></div>;
+  if (state.kind === "denied") return <div className="notification-state" role="status"><BellOff size={18} aria-hidden="true" /><div><strong>{pushMenuText.deniedTitle}</strong><p>{pushMenuText.deniedBody}</p></div></div>;
+  if (state.kind === "unsupported") return <div className="notification-state" role="status"><BellOff size={18} aria-hidden="true" /><div><strong>{pushMenuText.unsupportedTitle}</strong><p>{pushMenuText.unsupportedBody}</p></div></div>;
+  if (state.kind === "server_disabled") return <div className="notification-state" role="status"><BellOff size={18} aria-hidden="true" /><div><strong>{pushMenuText.serverDisabledTitle}</strong><p>{pushMenuText.serverDisabledBody}</p></div></div>;
+  if (state.kind === "error") return <div className="notification-state is-error" role="alert"><BellOff size={18} aria-hidden="true" /><div><strong>{pushMenuText.errorTitle}</strong><p>{state.message}</p></div></div>;
+  return <div className="notification-state"><BellRing size={18} aria-hidden="true" /><div><strong>{pushMenuText.offTitle}</strong><p>{pushMenuText.offBody}</p></div></div>;
 }
 
 function cssDuration(name: string, fallback: number): number {

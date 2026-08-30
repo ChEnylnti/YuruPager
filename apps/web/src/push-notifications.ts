@@ -5,6 +5,7 @@ import {
   registerPushSubscription,
   unregisterPushSubscription,
 } from "./api.js";
+import { pushNotificationsText } from "./i18n.js";
 
 export type PushNotificationState =
   | { kind: "loading" }
@@ -64,7 +65,7 @@ export async function disablePushNotifications(): Promise<PushNotificationState>
   }
   await unregisterPushSubscription(subscription.endpoint);
   const removed = await subscription.unsubscribe();
-  if (!removed) throw new Error("浏览器未能撤销通知订阅");
+  if (!removed) throw new Error(pushNotificationsText.unsubscribeFailed);
   return Notification.permission === "denied"
     ? { kind: "denied" }
     : { kind: "available", permission: Notification.permission };
@@ -73,7 +74,7 @@ export async function disablePushNotifications(): Promise<PushNotificationState>
 export function serializeSubscription(subscription: PushSubscription): PushSubscriptionInput {
   const p256dh = subscription.getKey("p256dh");
   const auth = subscription.getKey("auth");
-  if (p256dh === null || auth === null) throw new Error("浏览器返回的通知密钥不完整");
+  if (p256dh === null || auth === null) throw new Error(pushNotificationsText.keysIncomplete);
   return {
     endpoint: subscription.endpoint,
     expirationTime: subscription.expirationTime,
@@ -97,7 +98,7 @@ async function currentSubscription(): Promise<PushSubscription | null> {
 
 async function readyServiceWorker(): Promise<ServiceWorkerRegistration> {
   return new Promise<ServiceWorkerRegistration>((resolve, reject) => {
-    const timer = window.setTimeout(() => reject(new Error("Service Worker 尚未准备完成")), 8_000);
+    const timer = window.setTimeout(() => reject(new Error(pushNotificationsText.workerNotReady)), 8_000);
     void navigator.serviceWorker.ready.then((registration) => {
       clearTimeout(timer);
       resolve(registration);
@@ -110,7 +111,7 @@ async function readyServiceWorker(): Promise<ServiceWorkerRegistration> {
 
 function assertCapability(capability: PushCapability): void {
   if (!capability.enabled || capability.publicKey === null) {
-    throw new Error("此服务器尚未启用 Web Push");
+    throw new Error(pushNotificationsText.serverDisabled);
   }
 }
 

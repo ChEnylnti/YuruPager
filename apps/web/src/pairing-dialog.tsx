@@ -18,7 +18,7 @@ import {
   getWorkstationPairings,
 } from "./api.js";
 import { appBaseUrl } from "./base-path.js";
-import { errorLabel } from "./i18n.js";
+import { errorLabel, pairingText } from "./i18n.js";
 
 const codeStoragePrefix = "yurupager:pair-code:";
 
@@ -74,7 +74,7 @@ export function PairingDialog({
       if (event.key === "Escape") requestClose();
     };
     window.addEventListener("keydown", onKeyDown);
-    void load().catch((reason: unknown) => setError(errorLabel(reason, "无法读取配对状态"))).finally(() => setBusy(null));
+    void load().catch((reason: unknown) => setError(errorLabel(reason, pairingText.loadFailed))).finally(() => setBusy(null));
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [load, requestClose]);
 
@@ -113,7 +113,7 @@ export function PairingDialog({
       setPairings((current) => [result.pairing, ...current.filter((item) => item.id !== result.pairing.id)]);
       setSelectedId(result.pairing.id);
     } catch (reason) {
-      setError(errorLabel(reason, "无法创建配对"));
+      setError(errorLabel(reason, pairingText.createFailed));
     } finally {
       setBusy(null);
     }
@@ -128,10 +128,10 @@ export function PairingDialog({
       setPairings((current) => current.map((item) => item.id === next.id ? next : item));
       sessionStorage.removeItem(`${codeStoragePrefix}${next.id}`);
       setPairCode(null);
-      onToast("工作站已授权，正在等待 Connector 上线");
+      onToast(pairingText.approvedToast);
       onChanged();
     } catch (reason) {
-      setError(errorLabel(reason, "无法确认工作站"));
+      setError(errorLabel(reason, pairingText.approveFailed));
       await load().catch(() => undefined);
     } finally {
       setBusy(null);
@@ -147,9 +147,9 @@ export function PairingDialog({
       setPairings((current) => current.map((item) => item.id === next.id ? next : item));
       sessionStorage.removeItem(`${codeStoragePrefix}${next.id}`);
       setPairCode(null);
-      onToast("配对已取消");
+      onToast(pairingText.cancelledToast);
     } catch (reason) {
-      setError(errorLabel(reason, "无法取消配对"));
+      setError(errorLabel(reason, pairingText.cancelFailed));
       await load().catch(() => undefined);
     } finally {
       setBusy(null);
@@ -169,8 +169,8 @@ export function PairingDialog({
       <div ref={dialogRef} className={`decision-dialog pairing-dialog t-modal ${motionState === "open" ? "is-open" : motionState === "closing" ? "is-closing" : ""}`} role="dialog" aria-modal="true" aria-labelledby="pairing-title" tabIndex={-1}>
         <header className="pairing-dialog-header">
           <span className="dialog-icon"><Laptop aria-hidden="true" size={20} /></span>
-          <div><p className="eyebrow">独立设备凭据</p><h2 id="pairing-title">添加工作站</h2></div>
-          <button className="icon-button" type="button" aria-label="关闭配对" title="关闭" onClick={requestClose}><X aria-hidden="true" size={18} /></button>
+          <div><p className="eyebrow">{pairingText.eyebrow}</p><h2 id="pairing-title">{pairingText.heading}</h2></div>
+          <button className="icon-button" type="button" aria-label={pairingText.closeAria} title={pairingText.close} onClick={requestClose}><X aria-hidden="true" size={18} /></button>
         </header>
         <div className="pairing-state-slot" aria-live="polite">
           {busy === "loading" ? <PairingLoading /> : selected === null ? (
@@ -192,13 +192,13 @@ export function PairingDialog({
         {error !== null && <p className="pairing-error" role="alert">{error}</p>}
         <footer className="dialog-actions pairing-actions">
           {selected === null ? (
-            <button className="secondary-button" type="button" onClick={requestClose}>关闭</button>
+            <button className="secondary-button" type="button" onClick={requestClose}>{pairingText.close}</button>
           ) : selected.status === "waiting_for_device" ? (
-            <><button className="secondary-button danger-text" type="button" disabled={busy !== null} onClick={() => void cancel()}>取消配对</button><button className="secondary-button" type="button" onClick={requestClose}>稍后继续</button></>
+            <><button className="secondary-button danger-text" type="button" disabled={busy !== null} onClick={() => void cancel()}>{pairingText.cancelPairing}</button><button className="secondary-button" type="button" onClick={requestClose}>{pairingText.continueLater}</button></>
           ) : selected.status === "pending_approval" ? (
-            <><button className="secondary-button danger-text" type="button" disabled={busy !== null} onClick={() => void cancel()}>拒绝连接</button><button className="primary-button" type="button" disabled={busy !== null || workstationName.trim() === ""} onClick={() => void approve()}>{busy === "approving" && <LoaderCircle className="spinner" aria-hidden="true" size={16} />}确认连接</button></>
+            <><button className="secondary-button danger-text" type="button" disabled={busy !== null} onClick={() => void cancel()}>{pairingText.rejectConnection}</button><button className="primary-button" type="button" disabled={busy !== null || workstationName.trim() === ""} onClick={() => void approve()}>{busy === "approving" && <LoaderCircle className="spinner" aria-hidden="true" size={16} />}{pairingText.confirmConnection}</button></>
           ) : (
-            <><button className="secondary-button" type="button" onClick={startAnother}>继续添加</button><button className="primary-button" type="button" onClick={requestClose}>完成</button></>
+            <><button className="secondary-button" type="button" onClick={startAnother}>{pairingText.addAnother}</button><button className="primary-button" type="button" onClick={requestClose}>{pairingText.done}</button></>
           )}
         </footer>
       </div>
@@ -213,8 +213,8 @@ function CreatePairing({ workspaceId, workspaces, busy, onWorkspace, onCreate }:
   onWorkspace(value: string): void;
   onCreate(): void;
 }) {
-  if (workspaces.length === 0) return <div className="pairing-empty"><ShieldCheck aria-hidden="true" size={22} /><p>你没有可管理工作站的工作区。</p></div>;
-  return <div className="pairing-create"><p>选择工作站的数据归属。配对码十分钟有效，设备登记后仍需你明确确认。</p><label className="field-label">工作区<select value={workspaceId} onChange={(event) => onWorkspace(event.target.value)}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</select></label><button className="primary-button pairing-create-button" type="button" disabled={busy || workspaceId === ""} onClick={onCreate}>{busy && <LoaderCircle className="spinner" aria-hidden="true" size={16} />}{busy ? "正在创建" : "生成配对命令"}</button></div>;
+  if (workspaces.length === 0) return <div className="pairing-empty"><ShieldCheck aria-hidden="true" size={22} /><p>{pairingText.noWorkspaces}</p></div>;
+  return <div className="pairing-create"><p>{pairingText.ownershipNotice}</p><label className="field-label">{pairingText.workspaceLabel}<select value={workspaceId} onChange={(event) => onWorkspace(event.target.value)}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</select></label><button className="primary-button pairing-create-button" type="button" disabled={busy || workspaceId === ""} onClick={onCreate}>{busy && <LoaderCircle className="spinner" aria-hidden="true" size={16} />}{busy ? pairingText.creating : pairingText.generateCommand}</button></div>;
 }
 
 function WaitingForDevice({ pairing, pairCode, now, onCopy }: { pairing: WorkstationPairingSummary; pairCode: string | null; now: number; onCopy(message: string, tone?: "success" | "error"): void }) {
@@ -222,22 +222,22 @@ function WaitingForDevice({ pairing, pairCode, now, onCopy }: { pairing: Worksta
   const command = pairCode === null ? null : `curl -fsSL ${appBaseUrl()}api/connector/install.sh | sh -s -- --server ${appBaseUrl()} --pair ${pairCode}`;
   const copy = async () => {
     if (command === null) return;
-    try { await navigator.clipboard.writeText(command); onCopy("配对命令已复制"); }
-    catch { onCopy("无法访问剪贴板，请手动复制", "error"); }
+    try { await navigator.clipboard.writeText(command); onCopy(pairingText.commandCopiedToast); }
+    catch { onCopy(pairingText.clipboardFailedToast, "error"); }
   };
-  return <div className="pairing-waiting"><div className="pairing-status-line"><Clock3 aria-hidden="true" size={18} /><div><strong>等待设备运行命令</strong><span>{formatCountdown(seconds)} 后过期 / {pairing.workspaceName}</span></div></div>{command === null ? <p className="pairing-unavailable">此浏览器没有保存该短期码。请取消后重新创建配对。</p> : <><code className="pairing-command">{command}</code><button className="secondary-button pairing-copy" type="button" onClick={() => void copy()}><Clipboard aria-hidden="true" size={16} />复制命令</button></>}</div>;
+  return <div className="pairing-waiting"><div className="pairing-status-line"><Clock3 aria-hidden="true" size={18} /><div><strong>{pairingText.waitingTitle}</strong><span>{formatCountdown(seconds)}{pairingText.expiresSuffix}{pairing.workspaceName}</span></div></div>{command === null ? <p className="pairing-unavailable">{pairingText.commandUnavailable}</p> : <><code className="pairing-command">{command}</code><button className="secondary-button pairing-copy" type="button" onClick={() => void copy()}><Clipboard aria-hidden="true" size={16} />{pairingText.copyCommand}</button></>}</div>;
 }
 
 function ConfirmDevice({ pairing, name, onName }: { pairing: WorkstationPairingSummary; name: string; onName(value: string): void }) {
-  return <div className="pairing-confirm"><div className="pairing-status-line"><ShieldCheck aria-hidden="true" size={18} /><div><strong>核对候选设备</strong><span>确认后该设备将获得独立连接凭据</span></div></div><dl className="pairing-facts"><div><dt>工作区</dt><dd>{pairing.workspaceName}</dd></div><div><dt>平台</dt><dd>{pairing.platform}</dd></div><div><dt>Connector</dt><dd>{pairing.connectorVersion}</dd></div><div><dt>设备指纹</dt><dd className="mono">{pairing.fingerprint}</dd></div></dl><label className="field-label">工作站名称<input value={name} maxLength={240} onChange={(event) => onName(event.target.value)} /></label></div>;
+  return <div className="pairing-confirm"><div className="pairing-status-line"><ShieldCheck aria-hidden="true" size={18} /><div><strong>{pairingText.confirmTitle}</strong><span>{pairingText.confirmSubtitle}</span></div></div><dl className="pairing-facts"><div><dt>{pairingText.workspaceLabel}</dt><dd>{pairing.workspaceName}</dd></div><div><dt>{pairingText.platformLabel}</dt><dd>{pairing.platform}</dd></div><div><dt>{pairingText.connectorLabel}</dt><dd>{pairing.connectorVersion}</dd></div><div><dt>{pairingText.fingerprintLabel}</dt><dd className="mono">{pairing.fingerprint}</dd></div></dl><label className="field-label">{pairingText.workstationNameLabel}<input value={name} maxLength={240} onChange={(event) => onName(event.target.value)} /></label></div>;
 }
 
 function PairingFinal({ pairing }: { pairing: WorkstationPairingSummary }) {
   const approved = pairing.status === "approved";
-  return <div className={`pairing-final ${approved ? "is-approved" : ""}`}>{approved ? <CheckCircle2 aria-hidden="true" size={28} /> : <X aria-hidden="true" size={28} />}<h3>{approved ? "工作站已授权" : pairing.status === "expired" ? "配对已过期" : "配对已取消"}</h3><p>{approved ? `${pairing.deviceName ?? "工作站"} 正在领取独立凭据并连接。` : "该配对码不能再用于连接。"}</p></div>;
+  return <div className={`pairing-final ${approved ? "is-approved" : ""}`}>{approved ? <CheckCircle2 aria-hidden="true" size={28} /> : <X aria-hidden="true" size={28} />}<h3>{approved ? pairingText.finalApproved : pairing.status === "expired" ? pairingText.finalExpired : pairingText.finalCancelled}</h3><p>{approved ? pairingText.finalApprovedBody(pairing.deviceName ?? pairingText.workstationFallback) : pairingText.finalRejectedBody}</p></div>;
 }
 
-function PairingLoading() { return <div className="pairing-loading"><LoaderCircle className="spinner" aria-hidden="true" size={22} /><span>正在恢复配对状态</span></div>; }
+function PairingLoading() { return <div className="pairing-loading"><LoaderCircle className="spinner" aria-hidden="true" size={22} /><span>{pairingText.restoring}</span></div>; }
 function formatCountdown(seconds: number): string { return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`; }
 function cssDuration(name: string, fallback: number): number { const value = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)); return Number.isFinite(value) ? value : fallback; }
 function prefersReducedMotion(): boolean { return typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches; }

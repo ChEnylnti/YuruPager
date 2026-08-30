@@ -51,19 +51,19 @@ import {
   UsageView,
   WorkstationsView,
 } from "./views.js";
-import { errorLabel } from "./i18n.js";
+import { appText, errorLabel } from "./i18n.js";
 import type { LiveChannel, LiveMessageHandler } from "./live-channel.js";
 import { PushNotificationMenu } from "./push-notification-menu.js";
 
 type ViewId = "inbox" | "workstations" | "sessions" | "usage" | "members" | "audit";
 
 const navigation: Array<{ id: ViewId; label: string; icon: LucideIcon }> = [
-  { id: "inbox", label: "请求", icon: ClipboardCheck },
-  { id: "workstations", label: "工作站", icon: Laptop },
-  { id: "sessions", label: "会话", icon: Activity },
-  { id: "usage", label: "用量", icon: CircleDollarSign },
-  { id: "members", label: "成员", icon: UsersRound },
-  { id: "audit", label: "审计", icon: History },
+  { id: "inbox", label: appText.navInbox, icon: ClipboardCheck },
+  { id: "workstations", label: appText.navWorkstations, icon: Laptop },
+  { id: "sessions", label: appText.navSessions, icon: Activity },
+  { id: "usage", label: appText.navUsage, icon: CircleDollarSign },
+  { id: "members", label: appText.navMembers, icon: UsersRound },
+  { id: "audit", label: appText.navAudit, icon: History },
 ];
 const cachePrefix = "yurupager:v2:";
 const userCacheKey = `${cachePrefix}user`;
@@ -132,7 +132,7 @@ export function App() {
         : null;
       if (cached !== null) setSnapshot(cached);
       setServerConnected(false);
-      setLoadError(errorLabel(error, "无法获取服务器快照"));
+      setLoadError(errorLabel(error, appText.snapshotLoadFailed));
     } finally {
       setLoading(false);
     }
@@ -340,9 +340,9 @@ export function App() {
         onLogout={() => void logout().finally(signedOut)}
         onToast={notify}
       />
-      <aside className="side-nav" aria-label="主导航">
+      <aside className="side-nav" aria-label={appText.sideNavAria}>
         <nav>{navigation.map((item) => <NavButton key={item.id} item={item} active={view === item.id} pending={item.id === "inbox" ? snapshot?.requests.filter((request) => request.status === "pending").length ?? 0 : 0} onClick={() => changeView(item.id)} />)}</nav>
-        <div className="privacy-note"><ShieldCheck aria-hidden="true" size={16} /><span>仅显示必要上下文</span></div>
+        <div className="privacy-note"><ShieldCheck aria-hidden="true" size={16} /><span>{appText.privacyNote}</span></div>
       </aside>
 
       <main className={`main-surface view-${view} ${mobileDetail ? "mobile-detail-open" : ""}`}>
@@ -350,7 +350,7 @@ export function App() {
           <div
             className="t-skel-skeleton skeleton-layout is-pulsing"
             role="status"
-            aria-label="正在加载工作区"
+            aria-label={appText.loadingWorkspacesAria}
             aria-hidden={snapshot !== null || loadError !== null}
           ><div /><div /><div /></div>
           <div className="t-skel-content">
@@ -374,15 +374,15 @@ export function App() {
                     : <AuditView snapshot={snapshot} />}
           </div>
         </div>
-        {loading && snapshot !== null && <div className="refresh-line" role="status"><span /><span className="sr-only">正在刷新快照</span></div>}
+        {loading && snapshot !== null && <div className="refresh-line" role="status"><span /><span className="sr-only">{appText.refreshingSnapshot}</span></div>}
       </main>
 
-      <nav className="bottom-nav" aria-label="移动端导航">
+      <nav className="bottom-nav" aria-label={appText.mobileNavAria}>
         {navigation.slice(0, 3).map((item) => <NavButton key={item.id} item={item} active={view === item.id} pending={item.id === "inbox" ? snapshot?.requests.filter((request) => request.status === "pending").length ?? 0 : 0} onClick={() => changeView(item.id)} />)}
-        <NavButton item={{ id: "usage", label: "更多", icon: MessageSquareMore }} active={["usage", "members", "audit"].includes(view)} pending={0} onClick={() => changeView("usage")} />
+        <NavButton item={{ id: "usage", label: appText.navMore, icon: MessageSquareMore }} active={["usage", "members", "audit"].includes(view)} pending={0} onClick={() => changeView("usage")} />
       </nav>
 
-      {loadError !== null && snapshot !== null && <div className={`snapshot-warning ${mobileDetail && view === "inbox" ? "with-decision-bar" : ""}`} role="status"><WifiOff size={16} aria-hidden="true" /><span>{loadError}。当前显示最近一次快照。</span><button type="button" onClick={() => void load(workspaceId, false)}>重试</button></div>}
+      {loadError !== null && snapshot !== null && <div className={`snapshot-warning ${mobileDetail && view === "inbox" ? "with-decision-bar" : ""}`} role="status"><WifiOff size={16} aria-hidden="true" /><span>{loadError}{appText.staleSnapshotSuffix}</span><button type="button" onClick={() => void load(workspaceId, false)}>{appText.retry}</button></div>}
       {toast !== null && <Toast toast={toast} onClose={() => setToast(null)} />}
     </div>
   );
@@ -412,7 +412,7 @@ function InboxWorkspace({
     <div className="inbox-workspace t-page-slide" data-page={mobileDetail ? "2" : "1"}>
       <InboxList requests={snapshot.requests} selectedId={selected?.id ?? null} onSelect={onSelect} motionPageId="1" />
       <section className="detail-pane t-page" data-page-id="2">
-        {selected === null ? <div className="detail-empty"><Bell aria-hidden="true" size={26} /><h2>未选择请求</h2><p>待处理的代理请求会显示在这里。</p></div> : (
+        {selected === null ? <div className="detail-empty"><Bell aria-hidden="true" size={26} /><h2>{appText.noRequestTitle}</h2><p>{appText.noRequestBody}</p></div> : (
           <RequestDetail request={selected} online={connected} onBack={onBack} onRequestChange={onRequestChange} onToast={onToast} />
         )}
       </section>
@@ -460,20 +460,20 @@ function TopBar({
     <header className="top-bar">
       <div className="brand"><span className="brand-mark"><MessageSquareMore aria-hidden="true" size={20} /></span><strong>YuruPager</strong></div>
       <div className="workspace-control">
-        <label htmlFor="workspace-select">工作区</label>
+        <label htmlFor="workspace-select">{appText.workspaceSelectLabel}</label>
         <div className="select-wrap"><select id="workspace-select" value={workspaceId ?? "all"} onChange={(event) => onWorkspace(event.target.value === "all" ? null : event.target.value)} disabled={loading && snapshot === null}>
-          <option value="all">全部工作区</option>
+          <option value="all">{appText.workspaceAllOption}</option>
           {snapshot?.workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
         </select><ChevronDown aria-hidden="true" size={15} /></div>
       </div>
       <div className="top-actions">
-        <div className="pending-indicator" aria-label={`${pending} 个待处理请求`}><Bell aria-hidden="true" size={17} /><span>待处理</span><strong>{pending}</strong></div>
-        <span className={`connection-pill ${connected ? "is-online" : "is-offline"}`} role="status">{connected ? <Wifi aria-hidden="true" size={15} /> : <WifiOff aria-hidden="true" size={15} />}<span>{connected ? "实时" : "离线"}</span></span>
+        <div className="pending-indicator" aria-label={appText.pendingAria(pending)}><Bell aria-hidden="true" size={17} /><span>{appText.pendingLabel}</span><strong>{pending}</strong></div>
+        <span className={`connection-pill ${connected ? "is-online" : "is-offline"}`} role="status">{connected ? <Wifi aria-hidden="true" size={15} /> : <WifiOff aria-hidden="true" size={15} />}<span>{connected ? appText.online : appText.offline}</span></span>
         <PushNotificationMenu userId={user.id} onToast={onToast} />
-        <TooltipIconButton label="刷新快照" onClick={onRefresh} disabled={loading}><RefreshCw className={loading ? "spinner" : ""} aria-hidden="true" size={17} /></TooltipIconButton>
-        <span className="workspace-action"><button ref={workspaceTriggerRef} className="icon-button workspace-menu-trigger" type="button" aria-label="工作区操作" aria-expanded={menuOpen} aria-haspopup="dialog" title="工作区操作" onClick={() => menuOpen ? closeWorkspaceMenu() : openWorkspaceMenu()}><Plus aria-hidden="true" size={17} /></button>{menuMounted && <WorkspaceMenu open={menuOpen} snapshot={snapshot} onWorkspace={onWorkspace} onChanged={onChanged} onToast={onToast} onRequestClose={closeWorkspaceMenu} onClosed={finishWorkspaceMenuClose} />}</span>
+        <TooltipIconButton label={appText.refreshSnapshot} onClick={onRefresh} disabled={loading}><RefreshCw className={loading ? "spinner" : ""} aria-hidden="true" size={17} /></TooltipIconButton>
+        <span className="workspace-action"><button ref={workspaceTriggerRef} className="icon-button workspace-menu-trigger" type="button" aria-label={appText.workspaceActions} aria-expanded={menuOpen} aria-haspopup="dialog" title={appText.workspaceActions} onClick={() => menuOpen ? closeWorkspaceMenu() : openWorkspaceMenu()}><Plus aria-hidden="true" size={17} /></button>{menuMounted && <WorkspaceMenu open={menuOpen} snapshot={snapshot} onWorkspace={onWorkspace} onChanged={onChanged} onToast={onToast} onRequestClose={closeWorkspaceMenu} onClosed={finishWorkspaceMenuClose} />}</span>
         <span className="user-avatar" title={`${user.name} / ${user.email}`}>{initials(user.name)}</span>
-        <TooltipIconButton label="退出登录" onClick={onLogout}><LogOut aria-hidden="true" size={17} /></TooltipIconButton>
+        <TooltipIconButton label={appText.logout} onClick={onLogout}><LogOut aria-hidden="true" size={17} /></TooltipIconButton>
       </div>
     </header>
   );
@@ -531,34 +531,34 @@ function WorkspaceMenu({ open, snapshot, onWorkspace, onChanged, onToast, onRequ
       if (mode === "create") {
         const result = await createWorkspace(name, kind, crypto.randomUUID());
         onWorkspace(result.workspace.id);
-        onToast("工作区已创建");
+        onToast(appText.workspaceCreatedToast);
         onChanged();
         requestClose();
       } else {
         const workspace = await joinWorkspaceInvite(token);
         onWorkspace(workspace.id);
-        onToast(`已加入工作区：${workspace.name}`);
+        onToast(appText.joinedWorkspaceToast(workspace.name));
         onChanged();
         requestClose();
       }
     } catch (reason) {
-      setError(errorLabel(reason, mode === "create" ? "无法创建工作区" : "无法加入工作区"));
+      setError(errorLabel(reason, mode === "create" ? appText.workspaceCreateFailed : appText.workspaceJoinFailed));
     } finally { setBusy(false); }
   };
-  return <div ref={menuRef} className={`workspace-menu t-dropdown ${open ? "is-open" : "is-closing"}`} data-origin="top-right" role="dialog" aria-label="工作区操作" aria-modal="false" tabIndex={-1}>
-    <div className="workspace-menu-tabs" role="tablist" aria-label="工作区操作类型"><button type="button" role="tab" aria-selected={mode === "create"} onClick={() => { setMode("create"); setError(null); }}>创建工作区</button><button type="button" role="tab" aria-selected={mode === "join"} onClick={() => { setMode("join"); setError(null); }}>加入工作区</button></div>
+  return <div ref={menuRef} className={`workspace-menu t-dropdown ${open ? "is-open" : "is-closing"}`} data-origin="top-right" role="dialog" aria-label={appText.workspaceActionsAria} aria-modal="false" tabIndex={-1}>
+    <div className="workspace-menu-tabs" role="tablist" aria-label={appText.menuTabsAria}><button type="button" role="tab" aria-selected={mode === "create"} onClick={() => { setMode("create"); setError(null); }}>{appText.createWorkspaceTab}</button><button type="button" role="tab" aria-selected={mode === "join"} onClick={() => { setMode("join"); setError(null); }}>{appText.joinWorkspaceTab}</button></div>
     <form onSubmit={submit}>
-      {mode === "create" ? <><label>名称<input value={name} maxLength={240} onChange={(event) => setName(event.target.value)} placeholder="例如：产品团队" required /></label><label>类型<select value={kind} onChange={(event) => setKind(event.target.value as WorkspaceKind)}><option value="personal">个人</option><option value="company">公司</option><option value="team">团队</option></select></label></> : <label>邀请令牌<input className="mono" value={token} onChange={(event) => setToken(event.target.value)} placeholder="ypi_..." autoCapitalize="none" required /></label>}
+      {mode === "create" ? <><label>{appText.nameLabel}<input value={name} maxLength={240} onChange={(event) => setName(event.target.value)} placeholder={appText.namePlaceholder} required /></label><label>{appText.kindLabel}<select value={kind} onChange={(event) => setKind(event.target.value as WorkspaceKind)}><option value="personal">{appText.kindPersonal}</option><option value="company">{appText.kindCompany}</option><option value="team">{appText.kindTeam}</option></select></label></> : <label>{appText.inviteTokenLabel}<input className="mono" value={token} onChange={(event) => setToken(event.target.value)} placeholder="ypi_..." autoCapitalize="none" required /></label>}
       {error !== null && <p className="management-error" role="alert">{error}</p>}
-      <div className="workspace-menu-actions"><button className="secondary-button compact-action" type="button" onClick={requestClose}>取消</button><button className="primary-button compact-action" type="submit" disabled={busy || (mode === "create" ? name.trim() === "" : token.trim() === "")}>{busy && <LoaderCircle className="spinner" aria-hidden="true" size={14} />}{busy ? "提交中" : mode === "create" ? "创建" : "加入"}</button></div>
+      <div className="workspace-menu-actions"><button className="secondary-button compact-action" type="button" onClick={requestClose}>{appText.cancel}</button><button className="primary-button compact-action" type="submit" disabled={busy || (mode === "create" ? name.trim() === "" : token.trim() === "")}>{busy && <LoaderCircle className="spinner" aria-hidden="true" size={14} />}{busy ? appText.submitting : mode === "create" ? appText.createAction : appText.joinAction}</button></div>
     </form>
-    {snapshot?.workspaces.length === 0 && <p className="workspace-menu-note"><KeyRound aria-hidden="true" size={14} />加入后工作区会出现在切换器中。</p>}
+    {snapshot?.workspaces.length === 0 && <p className="workspace-menu-note"><KeyRound aria-hidden="true" size={14} />{appText.workspaceMenuNote}</p>}
   </div>;
 }
 
 function NavButton({ item, active, pending, onClick }: { item: { id: ViewId; label: string; icon: LucideIcon }; active: boolean; pending: number; onClick(): void }) {
   const Icon = item.icon;
-  return <button type="button" data-active={active} onClick={onClick} aria-current={active ? "page" : undefined} aria-label={pending > 0 ? `${item.label}，${pending} 个待处理` : item.label}><span className="nav-icon"><Icon aria-hidden="true" size={18} /><span className="nav-badge t-badge" data-open={pending > 0 ? "true" : "false"} aria-hidden="true"><span className="t-badge-dot">{pending > 99 ? "99+" : pending}</span></span></span><span>{item.label}</span></button>;
+  return <button type="button" data-active={active} onClick={onClick} aria-current={active ? "page" : undefined} aria-label={pending > 0 ? appText.navPendingAria(item.label, pending) : item.label}><span className="nav-icon"><Icon aria-hidden="true" size={18} /><span className="nav-badge t-badge" data-open={pending > 0 ? "true" : "false"} aria-hidden="true"><span className="t-badge-dot">{pending > 99 ? "99+" : pending}</span></span></span><span>{item.label}</span></button>;
 }
 
 function LoginScreen({ onSignedIn }: { onSignedIn(user: UserSummary): void }) {
@@ -572,19 +572,19 @@ function LoginScreen({ onSignedIn }: { onSignedIn(user: UserSummary): void }) {
     setError(null);
     void login(email, password)
       .then(onSignedIn)
-      .catch((reason: unknown) => setError(errorLabel(reason, "登录失败")))
+      .catch((reason: unknown) => setError(errorLabel(reason, appText.loginFailed)))
       .finally(() => setSubmitting(false));
   };
   return (
     <main className="login-screen">
       <section className="login-panel" aria-labelledby="login-heading">
         <div className="login-brand"><span className="brand-mark"><MessageSquareMore aria-hidden="true" size={21} /></span><strong>YuruPager</strong></div>
-        <div><p className="eyebrow">Web Alpha</p><h1 id="login-heading">登录</h1></div>
+        <div><p className="eyebrow">{appText.loginEyebrow}</p><h1 id="login-heading">{appText.loginHeading}</h1></div>
         <form onSubmit={submit}>
-          <label>邮箱<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" required /></label>
-          <label>密码<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required /></label>
+          <label>{appText.emailLabel}<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" required /></label>
+          <label>{appText.passwordLabel}<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required /></label>
           {error !== null && <p className="login-error" role="alert">{error}</p>}
-          <button className="primary-button login-submit" type="submit" disabled={submitting}>{submitting && <LoaderCircle className="spinner" aria-hidden="true" size={17} />}{submitting ? "登录中" : "登录"}</button>
+          <button className="primary-button login-submit" type="submit" disabled={submitting}>{submitting && <LoaderCircle className="spinner" aria-hidden="true" size={17} />}{submitting ? appText.loggingIn : appText.loginAction}</button>
         </form>
       </section>
     </main>
@@ -592,10 +592,10 @@ function LoginScreen({ onSignedIn }: { onSignedIn(user: UserSummary): void }) {
 }
 
 function SnapshotState({ error, onRetry }: { error: string | null; onRetry(): void }) {
-  return <div className="fatal-state"><WifiOff size={26} aria-hidden="true" /><h1>工作区不可用</h1><p>{error ?? "无法加载服务器快照。"}</p><button className="secondary-button" type="button" onClick={onRetry}>重试</button></div>;
+  return <div className="fatal-state"><WifiOff size={26} aria-hidden="true" /><h1>{appText.workspaceUnavailableTitle}</h1><p>{error ?? appText.snapshotLoadFailedSentence}</p><button className="secondary-button" type="button" onClick={onRetry}>{appText.retry}</button></div>;
 }
 
-function BootScreen() { return <main className="boot-screen" aria-label="正在加载 YuruPager"><span className="brand-mark"><MessageSquareMore aria-hidden="true" size={22} /></span><LoaderCircle className="spinner" aria-hidden="true" size={20} /></main>; }
+function BootScreen() { return <main className="boot-screen" aria-label={appText.bootAria}><span className="brand-mark"><MessageSquareMore aria-hidden="true" size={22} /></span><LoaderCircle className="spinner" aria-hidden="true" size={20} /></main>; }
 
 function TooltipIconButton({ label, onClick, disabled = false, children }: { label: string; onClick(): void; disabled?: boolean; children: ReactNode }) {
   const tooltipId = useId();
@@ -624,7 +624,7 @@ function Toast({ toast, onClose }: { toast: ToastState; onClose(): void }) {
       if (closeTimer.current !== null) clearTimeout(closeTimer.current);
     };
   }, [toast.id]);
-  return <div className={`toast toast-${toast.tone} t-toast ${open ? "is-open" : ""}`} role={toast.tone === "error" ? "alert" : "status"}><span>{toast.message}</span><button type="button" onClick={dismiss} aria-label="关闭通知"><X aria-hidden="true" size={16} /></button></div>;
+  return <div className={`toast toast-${toast.tone} t-toast ${open ? "is-open" : ""}`} role={toast.tone === "error" ? "alert" : "status"}><span>{toast.message}</span><button type="button" onClick={dismiss} aria-label={appText.dismissToast}><X aria-hidden="true" size={16} /></button></div>;
 }
 
 function cssDuration(name: string, fallback: number): number {

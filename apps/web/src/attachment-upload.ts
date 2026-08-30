@@ -2,6 +2,7 @@ import type { SessionImageMimeType, WebLiveClientMessage, WebLiveServerMessage }
 
 import type { LiveChannel } from "./live-channel.js";
 import { sniffImageMimeType } from "./image-format.js";
+import { attachmentUploadText } from "./i18n.js";
 
 export const IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 export const MAX_IMAGE_COUNT = 4;
@@ -36,16 +37,16 @@ export function validateDraftImages(
   const next = [...current];
   for (const file of files) {
     if (!IMAGE_MIME_TYPES.includes(file.type as (typeof IMAGE_MIME_TYPES)[number])) {
-      return { accepted: next, error: "仅支持 PNG、JPEG 和 WebP 图片" };
+      return { accepted: next, error: attachmentUploadText.unsupportedType };
     }
     if (file.size <= 0 || file.size > MAX_IMAGE_BYTES) {
-      return { accepted: next, error: "每张图片必须小于 5 MiB" };
+      return { accepted: next, error: attachmentUploadText.perImageTooLarge };
     }
     if (next.length >= MAX_IMAGE_COUNT) {
-      return { accepted: next, error: "每条消息最多添加 4 张图片" };
+      return { accepted: next, error: attachmentUploadText.maxImages };
     }
     if (next.reduce((total, item) => total + item.file.size, 0) + file.size > MAX_TOTAL_IMAGE_BYTES) {
-      return { accepted: next, error: "每条消息的图片总大小不能超过 12 MiB" };
+      return { accepted: next, error: attachmentUploadText.totalTooLarge };
     }
     next.push({ id: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file) });
   }
@@ -71,7 +72,7 @@ export async function uploadSessionAttachments(
       const mimeType = requireImageMimeType(attachment.file.type);
       const bytes = new Uint8Array(await readFileBuffer(attachment.file));
       if (sniffImageMimeType(bytes) !== mimeType) {
-        throw new AttachmentUploadError("invalid_image_type", "图片内容与格式不匹配");
+        throw new AttachmentUploadError("invalid_image_type", attachmentUploadText.typeMismatch);
       }
       const sha256 = await sha256Hex(bytes);
       let currentOffset = 0;
@@ -111,7 +112,7 @@ export async function uploadSessionAttachments(
         }, signal);
         if (status.state === "ready") break;
         const nextOffset = readNextOffset(status.nextOffset, bytes.byteLength);
-        if (nextOffset <= currentOffset) throw new AttachmentUploadError("upload_stalled", "图片上传没有继续进行");
+        if (nextOffset <= currentOffset) throw new AttachmentUploadError("upload_stalled", attachmentUploadText.uploadStalled);
         currentOffset = nextOffset;
         report(currentOffset);
       }
@@ -123,7 +124,7 @@ export async function uploadSessionAttachments(
           uploadId: attachment.id,
         }, signal);
       }
-      if (status.state !== "ready") throw new AttachmentUploadError("upload_incomplete", "工作站未完成图片校验");
+      if (status.state !== "ready") throw new AttachmentUploadError("upload_incomplete", attachmentUploadText.workstationVerificationIncomplete);
       tickets.push(requireTicket(status.ticket));
       completedBytes += bytes.byteLength;
       onProgress?.({ completedBytes, totalBytes, completedImages: index + 1, totalImages: attachments.length });
@@ -174,31 +175,31 @@ function sendAndWait(
     });
     const aborted = () => finish(() => reject(new DOMException("Upload cancelled", "AbortError")));
     const timeout = window.setTimeout(
-      () => finish(() => reject(new AttachmentUploadError("upload_timeout", "等待工作站响应超时"))),
+      () => finish(() => reject(new AttachmentUploadError("upload_timeout", attachmentUploadText.waitForWorkstationTimeout))),
       STATUS_TIMEOUT_MS,
     );
     signal.addEventListener("abort", aborted, { once: true });
     if (!channel.send(message)) {
-      finish(() => reject(new AttachmentUploadError("live_offline", "实时连接不可用，图片未上传")));
+      finish(() => reject(new AttachmentUploadError("live_offline", attachmentUploadText.liveUnavailable)));
     }
   });
 }
 
 function readNextOffset(value: number | undefined, byteLength: number): number {
   if (!Number.isSafeInteger(value) || value === undefined || value < 0 || value > byteLength) {
-    throw new AttachmentUploadError("invalid_upload_offset", "工作站返回了无效的上传位置");
+    throw new AttachmentUploadError("invalid_upload_offset", attachmentUploadText.invalidUploadOffset);
   }
   return value;
 }
 
 function requireTicket(value: string | undefined): string {
-  if (value === undefined || value.length < 16) throw new AttachmentUploadError("missing_upload_ticket", "工作站未返回图片票据");
+  if (value === undefined || value.length < 16) throw new AttachmentUploadError("missing_upload_ticket", attachmentUploadText.missingTicket);
   return value;
 }
 
 function requireImageMimeType(value: string): SessionImageMimeType {
   if (!IMAGE_MIME_TYPES.includes(value as SessionImageMimeType)) {
-    throw new AttachmentUploadError("invalid_image_type", "仅支持 PNG、JPEG 和 WebP 图片");
+    throw new AttachmentUploadError("invalid_image_type", attachmentUploadText.unsupportedType);
   }
   return value as SessionImageMimeType;
 }
@@ -207,10 +208,10 @@ function readFileBuffer(file: File): Promise<ArrayBuffer> {
   if (typeof file.arrayBuffer === "function") return file.arrayBuffer();
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(new AttachmentUploadError("invalid_upload", "无法读取图片内容"));
+    reader.onerror = () => reject(new AttachmentUploadError("invalid_upload", attachmentUploadText.readFailed));
     reader.onload = () => {
       if (reader.result instanceof ArrayBuffer) resolve(reader.result);
-      else reject(new AttachmentUploadError("invalid_upload", "无法读取图片内容"));
+      else reject(new AttachmentUploadError("invalid_upload", attachmentUploadText.readFailed));
     };
     reader.readAsArrayBuffer(file);
   });
@@ -228,10 +229,10 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 }
 
 function uploadErrorLabel(code: string | undefined): string {
-  if (code === "connector_offline") return "工作站离线，图片未上传";
-  if (code === "permission_denied") return "你无权向此会话上传图片";
-  if (code === "invalid_image_type" || code === "invalid_image") return "图片内容与格式不匹配";
-  if (code === "image_too_large") return "图片超过允许大小";
-  if (code === "image_hash_mismatch" || code === "hash_mismatch") return "图片完整性校验失败";
-  return "图片上传失败，内容已保留";
+  if (code === "connector_offline") return attachmentUploadText.connectorOffline;
+  if (code === "permission_denied") return attachmentUploadText.permissionDenied;
+  if (code === "invalid_image_type" || code === "invalid_image") return attachmentUploadText.typeMismatch;
+  if (code === "image_too_large") return attachmentUploadText.tooLarge;
+  if (code === "image_hash_mismatch" || code === "hash_mismatch") return attachmentUploadText.integrityFailed;
+  return attachmentUploadText.uploadFailedFallback;
 }

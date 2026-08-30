@@ -12,7 +12,7 @@ import {
   type DraftImageAttachment,
 } from "./attachment-upload.js";
 import { createIdempotencyKey } from "./idempotency.js";
-import { errorLabel } from "./i18n.js";
+import { composerText, errorLabel } from "./i18n.js";
 import type { LiveChannel } from "./live-channel.js";
 
 export interface SessionComposerProps {
@@ -63,15 +63,15 @@ export function SessionComposer({
   const queueForNextTurn = sessionBusy && attachments.length === 0;
   const canSubmit = online && valid && !submitting && connectorReadyForImages && (!sessionBusy || queueForNextTurn);
   const statusText = !online
-    ? "当前离线，消息未发送。"
+    ? composerText.offlineNotice
     : sessionBusy && attachments.length > 0
-      ? "Codex 正在运行；请在本轮结束后再发送图片。"
+      ? composerText.busyWithImages
       : sessionBusy
-        ? "Codex 正在运行；文字消息会排入下一轮。"
+        ? composerText.busyTextQueued
       : attachments.length > 0 && workstation?.status !== "online"
-        ? "工作站在线后才能上传图片。文字草稿和图片仍保留在此设备。"
+        ? composerText.workstationMustBeOnline
         : workstation?.status === "offline"
-          ? "工作站离线，消息将在 Connector 重连后投递。"
+          ? composerText.workstationOfflineNotice
           : "";
 
   const submit = (event: FormEvent) => {
@@ -84,7 +84,7 @@ export function SessionComposer({
       let tickets: string[] = [];
       try {
         if (attachments.length > 0) {
-          if (channel === undefined) throw new Error("实时连接不可用，图片未上传");
+          if (channel === undefined) throw new Error(composerText.liveUnavailable);
           const controller = new AbortController();
           uploadAbortRef.current = controller;
           setPhase("uploading");
@@ -104,7 +104,7 @@ export function SessionComposer({
         for (const attachment of attachments) URL.revokeObjectURL(attachment.previewUrl);
         onAttachmentsChange([]);
         keyRef.current = createIdempotencyKey();
-        onToast(result.replayed ? "消息已在队列中" : queueForNextTurn ? "消息已排入下一轮" : "消息已排队，等待工作站接收");
+        onToast(result.replayed ? composerText.queuedToast : queueForNextTurn ? composerText.queuedNextTurnToast : composerText.queuedToastDefault);
         requestAnimationFrame(() => textareaRef.current?.focus());
       } catch (reason: unknown) {
         if (tickets.length > 0 && channel !== undefined) {
@@ -113,7 +113,7 @@ export function SessionComposer({
           }
         }
         if (reason instanceof DOMException && reason.name === "AbortError") {
-          const message = "图片上传已取消，文字和图片仍保留";
+          const message = composerText.uploadCancelled;
           setError(message);
           return;
         }
@@ -124,8 +124,8 @@ export function SessionComposer({
           ? reason.message
           : null;
         const message = code === "permission_denied"
-          ? "你无权向此会话发送消息"
-          : uploadFailure ?? errorLabel(reason, "消息未排队，内容已保留");
+          ? composerText.permissionDenied
+          : uploadFailure ?? errorLabel(reason, composerText.queueFailedFallback);
         setError(message);
         onToast(message, "error");
       } finally {
@@ -211,18 +211,18 @@ export function SessionComposer({
       onDragOver={(event) => event.preventDefault()}
       onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false); }}
       onDrop={drop}
-      aria-label="向 Codex 发送消息"
+      aria-label={composerText.composerAria}
     >
       <div className="composer-heading">
-        <label htmlFor={`session-message-${session.id}`}>发送给 Codex</label>
-        <span className={contentLength > 8_000 ? "is-over-limit" : ""}>{attachments.length > 0 && `${attachments.length} 张图片 / `}{contentLength.toLocaleString("zh-CN")} / 8,000</span>
+        <label htmlFor={`session-message-${session.id}`}>{composerText.sendToCodexLabel}</label>
+        <span className={contentLength > 8_000 ? "is-over-limit" : ""}>{attachments.length > 0 && composerText.imagesCounter(attachments.length)}{contentLength.toLocaleString("zh-CN")} / 8,000</span>
       </div>
       {attachments.length > 0 && (
-        <div className="composer-attachments" aria-label="待发送图片">
+        <div className="composer-attachments" aria-label={composerText.pendingImagesAria}>
           {attachments.map((attachment, index) => (
             <div className="composer-attachment" key={attachment.id}>
-              <img src={attachment.previewUrl} alt={`待发送图片 ${index + 1}`} />
-              <button type="button" onClick={() => removeAttachment(attachment.id)} disabled={submitting} aria-label={`移除待发送图片 ${index + 1}`} title="移除图片">
+              <img src={attachment.previewUrl} alt={composerText.pendingImageAlt(index + 1)} />
+              <button type="button" onClick={() => removeAttachment(attachment.id)} disabled={submitting} aria-label={composerText.removePendingAria(index + 1)} title={composerText.removeImageTitle}>
                 <X size={15} aria-hidden="true" />
               </button>
             </div>
@@ -237,7 +237,7 @@ export function SessionComposer({
           accept={IMAGE_MIME_TYPES.join(",")}
           multiple
           tabIndex={-1}
-          aria-label="选择要发送的图片"
+          aria-label={composerText.pickImagesAria}
           onChange={(event) => {
             addFiles(Array.from(event.currentTarget.files ?? []));
             event.currentTarget.value = "";
@@ -250,8 +250,8 @@ export function SessionComposer({
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={submitting || attachments.length >= 4}
-          aria-label="添加图片"
-          title="添加图片"
+          aria-label={composerText.addImageAria}
+          title={composerText.addImageAria}
         >
           <ImagePlus size={18} aria-hidden="true" />
         </button>
@@ -262,20 +262,20 @@ export function SessionComposer({
           onChange={(event) => change(event.target.value)}
           onKeyDown={keyDown}
           onPaste={paste}
-          placeholder="输入下一步消息"
+          placeholder={composerText.messagePlaceholder}
           rows={1}
           maxLength={12_000}
           disabled={submitting}
           aria-describedby={`session-message-status-${session.id}`}
           aria-invalid={error !== null || contentLength > 8_000}
         />
-        <button className="primary-button composer-send" type="submit" disabled={!canSubmit} aria-label={queueForNextTurn ? "排入下一轮" : "发送消息"} aria-busy={submitting} title={queueForNextTurn ? "排入下一轮" : "发送消息"}>
+        <button className="primary-button composer-send" type="submit" disabled={!canSubmit} aria-label={queueForNextTurn ? composerText.queueNextTurn : composerText.sendMessage} aria-busy={submitting} title={queueForNextTurn ? composerText.queueNextTurn : composerText.sendMessage}>
           {submitting ? <LoaderCircle className="spinner" aria-hidden="true" size={17} /> : <Send aria-hidden="true" size={17} />}
-          <span>{phase === "uploading" ? "上传中" : phase === "queueing" ? "排队中" : queueForNextTurn ? "排入下一轮" : "发送"}</span>
+          <span>{phase === "uploading" ? composerText.uploading : phase === "queueing" ? composerText.queueing : queueForNextTurn ? composerText.queueNextTurn : composerText.send}</span>
         </button>
       </div>
       <div id={`session-message-status-${session.id}`} className="composer-status" aria-live="polite">
-        {phase === "uploading" && <span>正在上传图片 {progressPercent}% <button type="button" onClick={() => uploadAbortRef.current?.abort()}>取消上传</button></span>}
+        {phase === "uploading" && <span>{composerText.uploadingProgress(progressPercent)}<button type="button" onClick={() => uploadAbortRef.current?.abort()}>{composerText.cancelUpload}</button></span>}
         {statusText.length > 0 && <span>{!online && <WifiOff aria-hidden="true" size={14} />}{statusText}</span>}
         {error !== null && <span className="field-error" role="alert">{error}</span>}
       </div>

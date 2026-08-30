@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useMemo } from "react";
 
 import { lexer, type Token, type Tokens } from "marked";
+import { markdownText } from "./i18n.js";
 
 /**
  * Render model output as a small, safe Markdown surface. The renderer walks
@@ -74,7 +75,7 @@ function renderBlock(token: Token, key: string): ReactNode {
     case "table": {
       const table = token as Tokens.Table;
       return (
-        <div key={key} className="markdown-table-scroll" role="region" aria-label="Markdown 表格" tabIndex={0}>
+        <div key={key} className="markdown-table-scroll" role="region" aria-label={markdownText.tableRegionAria} tabIndex={0}>
           <table>
             <thead>
               <tr>{table.header.map((cell, cellIndex) => renderTableCell(cell, table.align[cellIndex], `${key}-head-${cellIndex}`, true))}</tr>
@@ -107,7 +108,7 @@ function renderListItem(item: Tokens.ListItem, key: string): ReactNode {
       {item.tokens.map((token, index) => {
         if (token.type === "checkbox") {
           const checkbox = token as Tokens.Checkbox;
-          return <input key={`${key}-checkbox-${index}`} type="checkbox" checked={checkbox.checked} disabled aria-label={checkbox.checked ? "已完成" : "未完成"} />;
+          return <input key={`${key}-checkbox-${index}`} type="checkbox" checked={checkbox.checked} disabled aria-label={checkbox.checked ? markdownText.checkboxCheckedAria : markdownText.checkboxUncheckedAria} />;
         }
         if (token.type === "list") return renderBlock(token, `${key}-nested-${index}`);
         if (token.type === "paragraph") {
@@ -167,12 +168,12 @@ function renderInlineToken(token: Token, key: string): ReactNode {
     }
     case "image": {
       const image = token as Tokens.Image;
-      return <span key={key} className="markdown-image-placeholder">图片：{image.text}</span>;
+      return <span key={key} className="markdown-image-placeholder">{markdownText.imagePlaceholder(image.text)}</span>;
     }
     case "html":
       return <span key={key}>{(token as Tokens.HTML).text}</span>;
     case "checkbox":
-      return <input key={key} type="checkbox" checked={(token as Tokens.Checkbox).checked} disabled aria-label={(token as Tokens.Checkbox).checked ? "已完成" : "未完成"} />;
+      return <input key={key} type="checkbox" checked={(token as Tokens.Checkbox).checked} disabled aria-label={(token as Tokens.Checkbox).checked ? markdownText.checkboxCheckedAria : markdownText.checkboxUncheckedAria} />;
     default: {
       const generic = token as Tokens.Generic;
       if (Array.isArray(generic.tokens)) return <span key={key}>{renderInline(generic.tokens, `${key}-nested`)}</span>;
