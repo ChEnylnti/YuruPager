@@ -95,6 +95,14 @@ npm run connector:preview  # expose a local dev port through the Connector
 cd apps/ios && swift run yurupager-core-checks  # iOS core sanity checks (macOS)
 ```
 
+### Language policy
+
+This README and the docs under `docs/` are written in English. User-facing UI
+strings are quoted in their original UI language (Chinese) with an English
+gloss where it aids understanding; code, identifiers, and commands stay
+untouched. The iOS runbook (`apps/ios/README.md`) is written in Chinese to
+match its operator audience.
+
 Connector spike commands (`npm run spike:*`) remain available; see
 [Technical spike commands](#technical-spike-commands). Reference documents live
 under [Documents](#documents).
@@ -246,18 +254,18 @@ IPs, reboots, snapshots, or billing settings.
 1. On the machine running the Web app, start it on loopback and run
    `yurupager preview <port>`.
 2. Sign in at your YuruPager origin, open the paired workstation, and select
-   **开发预览 -> 打开**.
+   **开发预览 (Dev preview) -> 打开 (Open)**.
 3. The browser redeems a one-time ticket and opens the app at the isolated
    preview origin. Do not copy or share a URL containing a ticket.
 
 For example, a Vite app on port `5173` is opened with:
 
 ```bash
-yurupager preview 5173 --name "本地 Web" --duration 60
+yurupager preview 5173 --name "Local Web" --duration 60
 ```
 
 Keep that terminal running while the preview is needed. `Ctrl+C`, the Web
-**停止** action, or expiry closes the route; a disconnected HTTP request is
+**停止 (Stop)** action, or expiry closes the route; a disconnected HTTP request is
 never replayed automatically.
 
 ## Local development
@@ -282,7 +290,7 @@ alice@yurupager.local / alpha-demo
 bob@yurupager.local   / alpha-demo
 ```
 
-这里的 `alpha-demo` 仅用于本地 Alpha 数据库的默认种子账号。公网部署的密码由部署环境中的 `ALPHA_PASSWORD` 配置，不写入仓库或安装包。
+`alpha-demo` is only the default seed password for the local Alpha database. The password for a public deployment comes from `ALPHA_PASSWORD` in that deployment's environment; it is never written into the repository or installers.
 
 The preferred setup path is the **Add workstation** flow above. The following
 environment-based launch remains only for migrating the original Alpha
