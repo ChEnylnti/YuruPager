@@ -15,6 +15,8 @@ import { SqliteDecisionLedger } from "../reliability/sqlite-decision-ledger.js";
 import { ConnectorCloudClient } from "../transport/connector-cloud-client.js";
 import { SqliteMessageStore } from "../transport/sqlite-message-store.js";
 import { AcpAgentRuntime } from "../agents/acp/acp-agent-runtime.js";
+import { CursorAgentRuntime } from "../agents/cursor/cursor-agent-runtime.js";
+import { resolveAgentPreset } from "../agents/agent-presets.js";
 import { MultiAgentRuntime } from "./multi-agent-runtime.js";
 import { ConnectorRuntime } from "./runtime.js";
 import { codexAgentConfig, loadConnectorConfig, resolveConnectorAgents, runSetup } from "./setup.js";
@@ -129,16 +131,34 @@ async function startConnector(): Promise<void> {
       runtimes.push(codexRuntime);
       continue;
     }
-    if (agent.kind === "acp") {
+    if (agent.kind === "acp" || resolveAgentPreset(agent.kind)?.runtime === "acp") {
+      const preset = resolveAgentPreset(agent.kind);
+      const command = agent.command.length > 0 ? agent.command : preset?.command ?? "";
+      if (command.length === 0) {
+        throw new Error(`配置的 agent ${agent.kind} 未提供 command，且没有可用的预设`);
+      }
       const acp = new AcpAgentRuntime({
-        command: agent.command,
+        agentId: agent.kind,
+        command,
+        args: (agent.args ?? []).length > 0 ? agent.args ?? [] : preset?.args ?? [],
+        cwd: projectPath,
+        projectName: projectBasename,
+        projectPath,
+        sessionStorePath: join(dataDirectory, "agent-sessions.sqlite"),
+      });
+      runtimes.push(acp);
+      continue;
+    }
+    if (agent.kind === "cursor") {
+      const cursor = new CursorAgentRuntime({
+        command: agent.command.length > 0 ? agent.command : "cursor-agent",
         args: agent.args ?? [],
         cwd: projectPath,
         projectName: projectBasename,
         projectPath,
-        sessionStorePath: join(dataDirectory, "acp-sessions.sqlite"),
+        sessionStorePath: join(dataDirectory, "agent-sessions.sqlite"),
       });
-      runtimes.push(acp);
+      runtimes.push(cursor);
       continue;
     }
     throw new Error(`配置包含尚未支持的 agent 类型：${agent.kind}`);

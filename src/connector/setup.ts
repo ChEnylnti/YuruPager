@@ -174,7 +174,9 @@ function isAgentList(value: unknown): value is AgentConfig[] {
   return value.every((agent) =>
     typeof agent === "object" && agent !== null &&
     typeof (agent as AgentConfig).kind === "string" && (agent as AgentConfig).kind.length > 0 &&
-    typeof (agent as AgentConfig).command === "string" && (agent as AgentConfig).command.length > 0 &&
+    // An empty command is valid when the kind resolves to a known preset;
+    // unknown kinds with no command fail closed at composition time.
+    typeof (agent as AgentConfig).command === "string" &&
     ((agent as AgentConfig).args === undefined || Array.isArray((agent as AgentConfig).args)) &&
     ((agent as AgentConfig).enabled === undefined || typeof (agent as AgentConfig).enabled === "boolean"),
   );
