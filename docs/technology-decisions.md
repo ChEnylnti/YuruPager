@@ -52,7 +52,12 @@
 | ADR-028 | Claude Code 经 claude-agent-acp 适配器接入（ACP 路径），原生 stream-json 适配器为条件性后备 | 草案（真实 CLI 验证清单通过后转采纳） |
 | ADR-029 | Cursor 经原生 stream-json 适配器接入（事件协议非 JSON-RPC） | Phase 3 采纳 |
 | ADR-030 | ZCode 经原生 `zcode app-server`（ZCode Protocol stdio JSON-RPC）接入，监督模式强制 build/edit，版本门 0.16.x | 草案（spike 回填后定稿） |
-| ADR-031 | DeepSeek Harness（dsh）经插件桥/api-gateway 接入，pre-step 审批门 + session/event 增量 | 草案 |
+| ADR-031 | DeepSeek Harness（dsh）经插件桥/api-gateway 接入，pre-step 审批门 + session/event 增量 | 搁置（适配器未落地；如需补齐单独立项） |
+| ADR-032 | 规划工作流编排归属：Connector 唯一执行器，Server 持久化定义+Run 状态机并经 outbox/inbox 下发，交接文本与 agent 产出不入库 | 草案 |
+| ADR-033 | 节点完成条件范式：agent_confirm / criteria_check / manual_gate 三选一，恒定 turn_budget+timeout 护栏，未确认绝不交接 | 草案 |
+| ADR-034 | 会话选项扩展：AgentRuntime 按会话指定 model/reasoningEffort，能力目录进 AgentCapabilities，各 runtime 写原生映射表 | 草案 |
+| ADR-035 | Web 画布采用 React Flow（@xyflow/react），移动端 v1 只做运行监控 | 草案 |
+| ADR-036 | 工作流权限与审计：定义 CRUD=member+，运行/取消需 can_orchestrate 授权，manual_gate 复用审批与高危确认通道，全量审计 | 草案 |
 
 ## 3. Codex 能力证据基线
 
@@ -1244,6 +1249,94 @@ ZCode 0.16.5 提供 `zcode app-server` 子命令（官方描述 "Run the ZCode P
 ### 验证方式
 
 - fake-zcode-app-server 契约套件（握手、发现、prompt、增量、审批往返、崩溃重连）+ 净化/用量测试；真实 CLI spike 人工清单。
+
+## ADR-032：编排归属与数据边界
+
+- 状态：草案（Phase 1 落地后定稿）
+- 决策日期：2026-08-30
+
+### 背景与约束
+
+规划工作流把多个 agent 接力任务编排起来。编排逻辑放哪里决定信任边界与崩溃语义：Server 持久化但不接触 agent 会话内容；Connector 是唯一与 agent 进程交互的组件。
+
+### 候选方案
+
+- A（采纳）：Server 持久化「定义 + Run 状态机元数据」并经既有 outbox/inbox 下发；Connector 内置编排引擎（src/workflow/）执行，用 SQLite journal 做崩溃恢复（沿用决策投递的 prepare/beginDispatch/ACK 模式）。节点交接文本与 agent 产出按会话内容处理：只走 ephemeral WSS 与工作站内存，永不进 PostgreSQL、审计文本、outbox 载荷或 Service Worker 缓存。
+- B：Server 直接编排（经 Connector 转发每条 prompt）——Server 需要感知会话内容与 agent 协议细节，破坏内容边界；Connector 断线时 Server 驱动的 turn 状态难以对账。
+- C：Web 端编排——页面关闭即中断，不可接受。
+
+### 选择结果
+
+- 采用 A。Run 引用定义的 JSONB 快照：编辑定义不影响进行中的 Run。
+- 可持久化白名单：定义、Run/节点状态机元数据、用量聚合。其余（交接文本、最终答复、校验结论正文）只存在于 Connector 内存与 ephemeral 通道；Run 事件仅携带状态与有界的非内容元数据（节点 id、状态、原因码）。
+- 崩溃恢复：Connector 重启后从 journal 恢复 Run 归属，当前执行中的节点标 interrupted 并按节点重试策略重派；策略耗尽 → 节点 failed → Run 失败策略。
+- 工作站离线时 Run 阻塞（保持 running 但上报 blocked_offline 原因码），不做服务端代执行。
+
+### 验证方式
+
+- Connector 编排引擎 node:test 全场景（状态机、条件、模板、重试、崩溃恢复、离线阻塞）；服务端迁移与快照测试；安全断言（交接文本不出现在任何持久化载荷）。
+
+## ADR-033：节点完成条件范式
+
+- 状态：草案（Phase 1 落地后定稿）
+- 决策日期：2026-08-30
+
+### 背景与选择
+
+节点“完成”必须可验证才允许交接（fail-closed）。范式：主条件三选一，恒定护栏叠加。
+
+- agent_confirm：本节点 agent 完成任务后，编排引擎以固定自检 prompt（模板内置，用户不可改写防注入）在工作站本机对该 agent 发起校验轮；agent 须输出 PASS/FAIL+理由。解析失败按 FAIL 处理。
+- criteria_check：按用户填写的 criteria 文本发起校验轮，同样要求 PASS/FAIL+理由。
+- manual_gate：人工审批门，复用现有 request.created→DecisionInput 审批链路（新增 kind workflow_gate），沿用 first valid decision wins；超时/拒绝 → 节点失败。
+- 恒定护栏：turn_budget（校验+重试消耗的最大轮数）与 timeout（节点墙钟上限），任一耗尽 → 校验未确认 → FAIL。
+
+### 选择结果
+
+- 校验轮在 Connector 引擎内通过 AgentRuntime 语义发起（与节点任务同通道）；校验轮文本与结论是会话内容，不入库。
+- FAIL → 节点重试策略（maxRetries + 指数退避）→ 重试耗尽 → 节点 failed → Run 失败策略（stop：Run failed；manual_intervention：Run 阻塞在 waiting_approval 等待人工 gate）。
+- 未确认绝不交接：交接渲染只在条件 CONFIRMED 后发生。
+
+## ADR-034：会话选项扩展（model / reasoningEffort）
+
+- 状态：草案（Phase 1 落地后定稿）
+- 决策日期：2026-08-30
+
+### 背景与选择
+
+节点需要指定执行者（agent kind + model + reasoningEffort）。归一化枚举 "minimal"|"low"|"medium"|"high" 由各 runtime 映射到原生参数；能力探测不到的目录项 UI 显示「默认」且运行时告警，不静默降级。
+
+### 选择结果
+
+- `AgentCapabilities` 增加 `models: Array<{ id, displayName, reasoningEfforts[] }>`，由各 runtime 能力探测填充。
+- `AgentRuntime` 增加 `startSession(options: { initialPrompt, cwd, model?, reasoningEffort?, attachments? }): Promise<{ sessionId }>` 与 `handleSessionCommand` 扩展 `options?: { model?, reasoningEffort? }`——引擎只依赖该语义。
+- 原生映射表：Codex turn 走 model/model_reasoning_effort（model/list 探测）；ZCode 走 session/setModel 与思考配置（探测缺省为默认并告警）；ACP 家族映射各家 thinking/effort 参数（探测缺省告警）；Cursor stream-json model 字段。
+- 节点指定的 model/effort 不在目录内 → 运行时报错拒绝（不降级到默认）。
+
+## ADR-035：Web 画布技术选型
+
+- 状态：草案（Phase 3 落地后定稿）
+- 决策日期：2026-08-30
+
+### 候选方案
+
+- React Flow（@xyflow/react）：成熟节点画布，受控布局、连线校验、键盘可达；代价是新增依赖与 bundle 体积（按需导入 ~几十 KB gzip）。
+- 自研 SVG 画布：零依赖，但拖拽/连线/缩放/可达性都要自维护，Phase 3 工期不可控。
+
+### 选择结果
+
+- 采用 React Flow。v1 编辑器校验为线性链（数据模型仍按 DAG 设计）；移动 PWA v1 不做画布编辑，只做运行监控与 gate 审批。
+
+## ADR-036：工作流权限与审计
+
+- 状态：草案（Phase 2 落地后定稿）
+- 决策日期：2026-08-30
+
+### 选择结果
+
+- 定义 CRUD：workspace 内 member 及以上（编辑需可管理该工作站的授权语义——v1 简化为 member+ 可编辑、owner/admin 可删除）。
+- 运行与取消：工作站新增 `can_orchestrate` 授权（owner/admin 在 Edit access 面板授予；迁移只加列，默认 false）。
+- manual_gate：新增 request kind `workflow_gate`，复用审批与高危确认通道（含超时与 first-valid-decision-wins 语义；默认拒绝）。
+- 审计：create/update/run/cancel/gate 全部记录（审计文本只含元数据：定义 id、Run id、节点 id、操作者、原因码——不含交接文本与 agent 产出）。
 
 ## 4. 实施顺序
 
