@@ -48,9 +48,9 @@ describe("versioned migrations", () => {
     const database = await createScratchDatabase("yuru_mig_test_fresh");
     try {
       const first = await runMigrations(database);
-      expect(first).toEqual({ applied: [1], stamped: [] });
+      expect(first).toEqual({ applied: [1, 2], stamped: [] });
       const applied = await database.query<{ id: number }>("SELECT id FROM schema_migrations ORDER BY id");
-      expect(applied.rows.map((row) => Number(row.id))).toEqual([1]);
+      expect(applied.rows.map((row) => Number(row.id))).toEqual([1, 2]);
       for (const table of ["app_users", "workspaces", "agent_requests", "push_subscriptions"]) {
         expect((await database.query(`SELECT to_regclass('public.${table}') AS reg`)).rows[0]?.reg).not.toBeNull();
       }
@@ -80,9 +80,9 @@ describe("versioned migrations", () => {
       ).toBeNull();
 
       const outcome = await runMigrations(database);
-      expect(outcome).toEqual({ applied: [], stamped: [1] });
+      expect(outcome).toEqual({ applied: [2], stamped: [1] });
       const applied = await database.query<{ id: number }>("SELECT id FROM schema_migrations ORDER BY id");
-      expect(applied.rows.map((row) => Number(row.id))).toEqual([1]);
+      expect(applied.rows.map((row) => Number(row.id))).toEqual([1, 2]);
     } finally {
       await database.end();
     }

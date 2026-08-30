@@ -2127,6 +2127,68 @@ describe("connector reliability", () => {
     expect(calibrated.rows[0].quality).toBe("final");
   });
 
+  it("stores the owning agent and honours carried pricing provider", async () => {
+    const threadId = `thread-agent-${randomUUID().slice(0, 8)}`;
+    await processConnectorEnvelope(database.connector, identity, makeEnvelope(randomUUID(), 700, {
+      type: "session.upsert",
+      threadId,
+      agent: "gemini",
+      sessionId: threadId,
+      projectKey: "agent-neutral-key",
+      projectName: "Agent Neutral",
+      projectPath: "~/agent-neutral",
+      model: "gemini-test-model",
+      status: "running",
+      syncState: "live",
+    }));
+    const stored = await database.admin.query(
+      "SELECT agent FROM agent_sessions WHERE workspace_id = $1 AND workstation_id = $2 AND thread_id = $3",
+      [identity.workspaceId, identity.workstationId, threadId],
+    );
+    expect(stored.rows[0]?.agent).toBe("gemini");
+
+    const eventId = `agent-usage-${randomUUID()}`;
+    await processConnectorEnvelope(database.connector, identity, makeEnvelope(randomUUID(), 701, {
+      type: "token.snapshot",
+      eventId,
+      sequence: 1,
+      threadId,
+      agent: "gemini",
+      sessionId: threadId,
+      turnId: "turn-agent-1",
+      provider: "google",
+      model: "gemini-test-model",
+      inputTokens: 1_000,
+      cachedInputTokens: 0,
+      outputTokens: 0,
+      reasoningTokens: 0,
+      totalTokens: 1_000,
+      quality: "provisional",
+      observedAt: new Date().toISOString(),
+    }));
+    const rollup = await database.admin.query(
+      `SELECT provider FROM token_usage_rollups
+        WHERE workspace_id = $1
+          AND session_id = (SELECT id FROM agent_sessions
+                             WHERE workspace_id = $1 AND workstation_id = $2 AND thread_id = $3)
+          AND model = 'gemini-test-model'`,
+      [identity.workspaceId, identity.workstationId, threadId],
+    );
+    expect(rollup.rows[0]?.provider).toBe("google");
+
+    // The codex inventory must not mark another agent's live sessions stale.
+    await processConnectorEnvelope(database.connector, identity, makeEnvelope(randomUUID(), 702, {
+      type: "session.inventory",
+      inventoryId: randomUUID(),
+      threadIds: ["unrelated-thread"],
+    }));
+    const refreshed = await database.admin.query(
+      "SELECT sync_state FROM agent_sessions WHERE workspace_id = $1 AND workstation_id = $2 AND thread_id = $3",
+      [identity.workspaceId, identity.workstationId, threadId],
+    );
+    expect(refreshed.rows[0]?.sync_state).toBe("live");
+  });
+
   it("turn interruption cancels the old pending approval", async () => {
     const envelope = makeEnvelope(randomUUID(), 601, {
       type: "turn.completed",

@@ -279,11 +279,11 @@ async function applyPayload(
       : (await client.query<{ id: string }>("SELECT id FROM app_users WHERE lower(email) = lower($1)", [payload.initiatedByEmail])).rows[0]?.id ?? null;
     await client.query(
       `INSERT INTO agent_sessions
-         (workspace_id, workstation_id, initiator_user_id, thread_id, latest_turn_id,
+         (workspace_id, workstation_id, agent, initiator_user_id, thread_id, latest_turn_id,
           project_key, project_name, project_path_hint, model, status, sync_state, started_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-               COALESCE($11, 'live'), COALESCE($12::timestamptz, now()), COALESCE($13::timestamptz, now()))
-       ON CONFLICT (workspace_id, workstation_id, thread_id) DO UPDATE SET
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+               COALESCE($12, 'live'), COALESCE($13::timestamptz, now()), COALESCE($14::timestamptz, now()))
+       ON CONFLICT (workspace_id, workstation_id, agent, thread_id) DO UPDATE SET
          initiator_user_id = COALESCE(EXCLUDED.initiator_user_id, agent_sessions.initiator_user_id),
          latest_turn_id = COALESCE(EXCLUDED.latest_turn_id, agent_sessions.latest_turn_id),
          project_key = EXCLUDED.project_key,
@@ -298,7 +298,7 @@ async function applyPayload(
          END,
          started_at = LEAST(agent_sessions.started_at, EXCLUDED.started_at),
          updated_at = GREATEST(agent_sessions.updated_at, EXCLUDED.updated_at)`,
-      [identity.workspaceId, identity.workstationId, initiator, payload.threadId, payload.turnId ?? null, payload.projectKey, payload.projectName, payload.projectPath, payload.model, payload.status, payload.syncState ?? (payload.status === "waiting" || payload.status === "running" ? "live" : "historical"), payload.startedAt ?? null, payload.updatedAt ?? null],
+      [identity.workspaceId, identity.workstationId, payload.agent ?? "codex", initiator, payload.threadId, payload.turnId ?? null, payload.projectKey, payload.projectName, payload.projectPath, payload.model, payload.status, payload.syncState ?? (payload.status === "waiting" || payload.status === "running" ? "live" : "historical"), payload.startedAt ?? null, payload.updatedAt ?? null],
     );
     return;
   }
@@ -310,9 +310,10 @@ async function applyPayload(
           SET sync_state = 'stale'
         WHERE workspace_id = $1
           AND workstation_id = $2
+          AND agent = $4
           AND sync_state <> 'stale'
           AND NOT (thread_id = ANY($3::text[]))`,
-      [identity.workspaceId, identity.workstationId, threadIds],
+      [identity.workspaceId, identity.workstationId, threadIds, payload.agent ?? "codex"],
     );
     await client.query(
       `UPDATE agent_sessions
@@ -457,9 +458,9 @@ async function applyPayload(
          (workspace_id, workstation_id, session_id, event_id, connection_epoch, source_sequence,
           turn_id, provider, model, input_tokens, cached_input_tokens, output_tokens,
           reasoning_tokens, total_tokens, quality, observed_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'openai', $8, $9, $10, $11, $12, $13, $14, $15)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
        ON CONFLICT DO NOTHING RETURNING id`,
-      [identity.workspaceId, identity.workstationId, sessionId, payload.eventId, envelope.connectionEpoch, payload.sequence, payload.turnId, payload.model, payload.inputTokens, payload.cachedInputTokens, payload.outputTokens, payload.reasoningTokens, payload.totalTokens, payload.quality, payload.observedAt],
+      [identity.workspaceId, identity.workstationId, sessionId, payload.eventId, envelope.connectionEpoch, payload.sequence, payload.turnId, payload.provider ?? "openai", payload.model, payload.inputTokens, payload.cachedInputTokens, payload.outputTokens, payload.reasoningTokens, payload.totalTokens, payload.quality, payload.observedAt],
     );
     if (inserted.rowCount === 1) {
       await client.query(
@@ -467,7 +468,7 @@ async function applyPayload(
            SELECT version, input_micros_per_million, cached_input_micros_per_million,
                   output_micros_per_million
              FROM pricing_catalog
-            WHERE provider = 'openai' AND model = $4
+            WHERE provider = $14 AND model = $4
               AND effective_from <= $13::timestamptz
               AND (effective_to IS NULL OR effective_to > $13::timestamptz)
             ORDER BY effective_from DESC LIMIT 1
@@ -486,7 +487,7 @@ async function applyPayload(
            (workspace_id, workstation_id, session_id, provider, model, latest_sequence, latest_event_id,
             input_tokens, cached_input_tokens, output_tokens, reasoning_tokens, total_tokens, quality,
             estimated_cost_micros, price_version, updated_at)
-         SELECT $1, $2, $3, 'openai', $4, $5, $6, $7, $8, $9, $10, $11, $12,
+         SELECT $1, $2, $3, $14, $4, $5, $6, $7, $8, $9, $10, $11, $12,
                 priced.estimated_cost_micros, priced.version, $13::timestamptz
            FROM priced
          ON CONFLICT (workspace_id, session_id, model) DO UPDATE SET
@@ -508,7 +509,7 @@ async function applyPayload(
            price_version = EXCLUDED.price_version,
            updated_at = EXCLUDED.updated_at
          WHERE token_usage_rollups.latest_sequence < EXCLUDED.latest_sequence`,
-        [identity.workspaceId, identity.workstationId, sessionId, payload.model, payload.sequence, payload.eventId, payload.inputTokens, payload.cachedInputTokens, payload.outputTokens, payload.reasoningTokens, payload.totalTokens, payload.quality, payload.observedAt],
+        [identity.workspaceId, identity.workstationId, sessionId, payload.model, payload.sequence, payload.eventId, payload.inputTokens, payload.cachedInputTokens, payload.outputTokens, payload.reasoningTokens, payload.totalTokens, payload.quality, payload.observedAt, payload.provider ?? "openai"],
       );
     }
     return;
