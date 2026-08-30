@@ -15,7 +15,7 @@ import type {
   AgentRuntime,
 } from "../types.js";
 import { NdjsonJsonRpcConnection } from "./json-rpc-connection.js";
-import { AcpSessionStore } from "./acp-session-store.js";
+import { AgentSessionStore } from "../agent-session-store.js";
 import type {
   RemoteDecision,
   RemoteSessionCommand,
@@ -73,7 +73,7 @@ export class AcpAgentRuntime implements AgentRuntime {
   readonly #displayName: string;
   #sink: AgentEventSink | undefined;
   #connection: NdjsonJsonRpcConnection | undefined;
-  #store: AcpSessionStore | undefined;
+  #store: AgentSessionStore | undefined;
   readonly #sessions = new Map<string, ActiveSession>();
   readonly #subscriptions = new Map<string, string>();
   readonly #pendingPermissions = new Map<string, PendingPermission>();
@@ -105,7 +105,7 @@ export class AcpAgentRuntime implements AgentRuntime {
   async start(): Promise<void> {
     if (this.#running) return;
     if (this.#options.sessionStorePath !== undefined) {
-      this.#store = new AcpSessionStore(this.#options.sessionStorePath);
+      this.#store = new AgentSessionStore(this.#options.sessionStorePath);
     }
     const connection = new NdjsonJsonRpcConnection({
       command: this.#options.command,
@@ -242,14 +242,14 @@ export class AcpAgentRuntime implements AgentRuntime {
         if (this.#loadSession) {
           try {
             await this.#requireConnection().request("session/load", {
-              sessionId: entry.acpSessionId,
+              sessionId: entry.nativeSessionId,
               history: false, // resume without replay; history is reloaded on subscribe
             });
           } catch {
             continue; // failed resume fails closed: the session is not re-offered
           }
         }
-        this.#sessions.set(entry.threadId, { threadId: entry.threadId, acpSessionId: entry.acpSessionId });
+        this.#sessions.set(entry.threadId, { threadId: entry.threadId, acpSessionId: entry.nativeSessionId });
       }
     };
     return resume();
