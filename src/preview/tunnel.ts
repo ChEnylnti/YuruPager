@@ -149,7 +149,6 @@ export class PreviewTunnel {
       return;
     }
 
-    let stream: HttpStream;
     const localRequest = request({
       host: this.#target.host,
       port: this.#target.port,
@@ -158,7 +157,7 @@ export class PreviewTunnel {
       headers,
       agent: false,
     });
-    stream = {
+    const stream: HttpStream = {
       kind: "http",
       id: message.streamId,
       request: localRequest,

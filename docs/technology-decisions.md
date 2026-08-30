@@ -1,8 +1,8 @@
 # YuruPager 技术选型与架构决策
 
-- 文档版本：v1.5
+- 文档版本：v1.6
 - 状态：关键 Spike 完成，进入 MVP 实施
-- 更新日期：2026-08-16
+- 更新日期：2026-08-30
 - 关联需求：[产品需求文档](./product-requirements.md)
 
 ## 1. 文档目的
@@ -43,6 +43,7 @@
 | ADR-019 | 会话图片使用授权 WSS 临时分块中转，并由 Connector 私有持久化 | Alpha 采纳 |
 | ADR-020 | 开发预览使用独立 HTTPS origin、独立易失 WSS 与本机显式端口授权 | Alpha 采纳 |
 | ADR-021 | PWA Web Push 使用 VAPID、账户级端点与最小路由通知，快照仍是事实来源 | Alpha 采纳 |
+| ADR-022 | ESLint（flat config）+ typescript-eslint 作为工程质量门禁 linter | MVP 采纳，warn 级起步 |
 
 ## 3. Codex 能力证据基线
 
@@ -967,6 +968,49 @@ Alpha 使用标准 Web Push + VAPID。每个浏览器 profile 的订阅属于当
 
 测试必须覆盖：未认证登记、跨账户 RLS、同端点归属转移、重复 Connector envelope 只派发一次、无工作站响应权限不派发、最小载荷扫描、`404/410` 清理、provider 暂时失败保留订阅、拒绝权限、登记失败回滚、本地关闭失败恢复、通知点击后的快照校准，以及 iOS 主屏幕 PWA、Android Chrome 和桌面浏览器真实设备接收。
 
+## ADR-022：工程质量门禁采用 ESLint（flat config）+ typescript-eslint
+
+- 状态：MVP 采纳
+- 决策日期：2026-08-30
+
+### 背景与约束
+
+仓库此前的 `lint` 只是各 workspace 的 `tsc --noEmit`，能发现类型错误但无法约束代码质量规则（未使用符号、可疑异步模式等）。实施顺序 §4 step 8 要求把协议契约与故障注入纳入 CI 与发布门禁，前提是存在真正的 linter。约束：Alpha 已交付且代码风格已稳定，接入必须 warn 级起步、修完全部 error，禁止大范围重排或重新格式化代码；monorepo 包含 Node 端与 React 端 TypeScript 以及少量构建脚本。
+
+### 候选方案
+
+- ESLint（flat config）+ typescript-eslint：TypeScript/React 生态标准，支持基于类型的规则（如 `no-floating-promises`），可按目录精细配置作用范围。
+- Biome：单工具、速度快，自带 formatter 与 linter，但不支持 TypeScript 类型感知规则；其核心优势在强格式化，与本仓库“不大范围重排”的约束直接冲突。
+
+### 选择结果
+
+- 采用 ESLint + typescript-eslint（flat config），根级 `eslint.config.js` 统一覆盖全部 workspace。
+- 初始规则集为 `tseslint.configs.recommended`：`@typescript-eslint/no-unused-vars` 保持 error 并允许 `_` 前缀占位参数；`@typescript-eslint/no-explicit-any` 先降为 warn（当前遗留全部集中在测试文件），债务还清后升回 error。
+- 排除范围：`vendor/`（第三方代码）、`src/spike/`（冻结的可复跑验证证据，保持原样）、`apps/ios/`（Swift，不在 ESLint 范围）与全部构建产物。
+- 根 `npm run lint` = `eslint .` + 各 workspace 既有 `tsc --noEmit`；CI 的 Node job 执行同一命令。
+
+### 选择理由
+
+- Connector 与服务端中继是重异步代码，typescript-eslint 的类型感知规则是后续拆分 session-relay / preview-relay（纯重构）时的关键安全网；Biome 无此能力。
+- flat config 单一根配置即可覆盖 monorepo，避免逐 workspace 重复维护。
+- 不启用 formatter，零格式化噪音，满足“禁止大范围重排代码”的约束。
+
+### 已知风险
+
+- warn 级 `no-explicit-any` 留存在测试文件中，需要后续清理。
+- 尚未启用类型感知 lint（需要 `parserOptions.project` / projectService，首次开启的告警量与耗时需单独评估），也尚未接入 eslint-plugin-react-hooks。
+
+### 验证方式
+
+- `npx eslint .` 达到 0 error（2026-08-30 基线：13 warnings，全部为测试文件的 `no-explicit-any`）。
+- `npm run lint`（ESLint + 各 workspace tsc）全绿，CI Node job 覆盖同一门禁。
+
+### 重新评估条件
+
+- 测试文件 `any` 债务清零后，将 `no-explicit-any` 升回 error。
+- 引入类型感知 lint 或 react-hooks 插件时，重新评估 lint 时长与告警预算。
+- 若未来引入 Biome 仅作 formatter 与 ESLint 并存，需重新评估规则重叠与执行顺序。
+
 ## 4. 实施顺序
 
 1. 固化 YuruPager Domain Event、Approval Request、Delivery Journal 和 Token Usage Schema。
@@ -995,6 +1039,11 @@ Alpha 使用标准 Web Push + VAPID。每个浏览器 profile 的订阅属于当
 - 任何降低默认拒绝、租户隔离或审计完整性的变更必须经过安全评审。
 
 ## 7. 版本记录
+
+### v1.6（2026-08-30）
+
+- 新增 ADR-022：工程质量门禁采用 ESLint（flat config）+ typescript-eslint，warn 级接入并修完全部 error。
+- 根 `npm run lint` 纳入 ESLint，与各 workspace 的 `tsc --noEmit` 并行构成完整门禁。
 
 ### v1.5（2026-08-16）
 

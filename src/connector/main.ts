@@ -80,7 +80,6 @@ async function startConnector(): Promise<void> {
     store,
   });
 
-  let runtime: ConnectorRuntime | undefined;
   const codex = new CodexAppServerClient({
     command: process.env.CODEX_COMMAND ?? "codex",
     cwd: process.env.YURUPAGER_PROJECT_PATH ?? process.cwd(),
@@ -104,7 +103,7 @@ async function startConnector(): Promise<void> {
     model: process.env.YURUPAGER_MODEL ?? "gpt-5.6-codex",
   };
   const initiatedByEmail = process.env.YURUPAGER_INITIATOR_EMAIL;
-  runtime = new ConnectorRuntime(
+  const runtime = new ConnectorRuntime(
     initiatedByEmail === undefined ? runtimeOptions : { ...runtimeOptions, initiatedByEmail },
   );
 

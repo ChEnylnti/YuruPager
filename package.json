@@ -23,7 +23,7 @@
     "test": "npm run build && npm run test:compiled",
     "test:all": "npm test && npm test --workspace @yurupager/server && npm test --workspace @yurupager/web",
     "typecheck": "npm run build && npm run typecheck --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present",
+    "lint": "eslint . && npm run lint --workspaces --if-present",
     "dev": "concurrently -k -n server,web -c blue,green \"npm run dev --workspace @yurupager/server\" \"npm run dev --workspace @yurupager/web\"",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
@@ -52,7 +52,9 @@
     "@types/node": "^24.0.0",
     "@types/ws": "^8.18.1",
     "concurrently": "^9.2.0",
-    "typescript": "^5.9.0"
+    "eslint": "^10.9.1",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.68.0"
   },
   "dependencies": {
     "@yurupager/shared": "0.1.0",

@@ -7,7 +7,6 @@ import {
   HelpCircle,
   LoaderCircle,
   ShieldAlert,
-  UserRound,
   WifiOff,
   X,
 } from "lucide-react";

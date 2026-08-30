@@ -124,7 +124,7 @@ export async function joinWorkspaceInvite(
   pool: Pool,
   userId: string,
   token: string,
-  secret: string,
+  _secret: string,
 ): Promise<WorkspaceSummary> {
   const normalized = token.trim();
   if (!/^ypi_[A-Za-z0-9_-]{32,160}$/.test(normalized)) {
