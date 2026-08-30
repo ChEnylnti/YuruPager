@@ -293,7 +293,6 @@ export class ConnectorRuntime implements AgentRuntime {
 
   async startSession(options: AgentStartSessionOptions): Promise<{ sessionId: string }> {
     assertSessionOptionsSupported(this.#agentId, options, this.#modelCatalogue);
-    const connection = this.#codex;
     const captured = await this.#captureNewThread(options);
     const payload: SessionUpsertPayload = {
       type: "session.upsert",
