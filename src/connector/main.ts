@@ -2,8 +2,10 @@
 
 import { mkdir } from "node:fs/promises";
 import { homedir, hostname, platform, release } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import type { AgentRuntime } from "../agents/types.js";
 
 import { CodexAppServerClient } from "../codex/json-rpc-client.js";
 import { SqliteLocalImageStore } from "../codex/local-image-store.js";
@@ -12,6 +14,7 @@ import { SqliteCommandJournal } from "../reliability/sqlite-command-journal.js";
 import { SqliteDecisionLedger } from "../reliability/sqlite-decision-ledger.js";
 import { ConnectorCloudClient } from "../transport/connector-cloud-client.js";
 import { SqliteMessageStore } from "../transport/sqlite-message-store.js";
+import { AcpAgentRuntime } from "../agents/acp/acp-agent-runtime.js";
 import { MultiAgentRuntime } from "./multi-agent-runtime.js";
 import { ConnectorRuntime } from "./runtime.js";
 import { codexAgentConfig, loadConnectorConfig, resolveConnectorAgents, runSetup } from "./setup.js";
@@ -89,41 +92,59 @@ async function startConnector(): Promise<void> {
       ? { ...agent, command: process.env.CODEX_COMMAND }
       : agent
   ));
-  if (!agentConfigs.every((agent) => agent.kind === "codex")) {
-    throw new Error("配置包含尚未支持的 agent 类型；当前仅支持 codex（ACP 运行时将在后续版本提供）");
+  const projectPath = process.env.YURUPAGER_PROJECT_PATH ?? process.cwd();
+  const projectBasename = basename(projectPath) || "workspace";
+  const runtimes: AgentRuntime[] = [];
+  let codexRuntime: ConnectorRuntime | undefined;
+  for (const agent of agentConfigs) {
+    if (agent.kind === "codex") {
+      const codex = new CodexAppServerClient({
+        command: agent.command,
+        cwd: projectPath,
+        onServerResponseWritten(request) {
+          codexRuntime?.markCodexResponseWritten(request);
+        },
+      });
+      const runtimeOptions = {
+        cloud,
+        agentId: "codex",
+        codex,
+        journal,
+        commands,
+        decisions,
+        media,
+        registerCloudHandlers: false,
+        codexCommand: agent.command,
+        workstationName: process.env.YURUPAGER_WORKSTATION_NAME ?? hostname(),
+        platform: `${platform()} ${release()} / ${process.arch}`,
+        connectorVersion: "0.2.0-alpha",
+        projectName: process.env.YURUPAGER_PROJECT_NAME ?? "Codex workspace",
+        projectPath,
+        model: process.env.YURUPAGER_MODEL ?? "gpt-5.6-codex",
+      };
+      const initiatedByEmail = process.env.YURUPAGER_INITIATOR_EMAIL;
+      codexRuntime = new ConnectorRuntime(
+        initiatedByEmail === undefined ? runtimeOptions : { ...runtimeOptions, initiatedByEmail },
+      );
+      runtimes.push(codexRuntime);
+      continue;
+    }
+    if (agent.kind === "acp") {
+      const acp = new AcpAgentRuntime({
+        command: agent.command,
+        args: agent.args ?? [],
+        cwd: projectPath,
+        projectName: projectBasename,
+        projectPath,
+        sessionStorePath: join(dataDirectory, "acp-sessions.sqlite"),
+      });
+      runtimes.push(acp);
+      continue;
+    }
+    throw new Error(`配置包含尚未支持的 agent 类型：${agent.kind}`);
   }
-  const codexEntry = agentConfigs[0];
-  if (codexEntry === undefined) throw new Error("配置未启用任何 agent");
-
-  const codex = new CodexAppServerClient({
-    command: codexEntry.command,
-    cwd: process.env.YURUPAGER_PROJECT_PATH ?? process.cwd(),
-    onServerResponseWritten(request) {
-      codexRuntime?.markCodexResponseWritten(request);
-    },
-  });
-  const runtimeOptions = {
-    cloud,
-    agentId: "codex",
-    codex,
-    journal,
-    commands,
-    decisions,
-    media,
-    registerCloudHandlers: false,
-    codexCommand: codexEntry.command,
-    workstationName: process.env.YURUPAGER_WORKSTATION_NAME ?? hostname(),
-    platform: `${platform()} ${release()} / ${process.arch}`,
-    connectorVersion: "0.2.0-alpha",
-    projectName: process.env.YURUPAGER_PROJECT_NAME ?? "Codex workspace",
-    projectPath: process.env.YURUPAGER_PROJECT_PATH ?? process.cwd(),
-    model: process.env.YURUPAGER_MODEL ?? "gpt-5.6-codex",
-  };
-  const initiatedByEmail = process.env.YURUPAGER_INITIATOR_EMAIL;
-  const codexRuntime = new ConnectorRuntime(
-    initiatedByEmail === undefined ? runtimeOptions : { ...runtimeOptions, initiatedByEmail },
-  );
-  const runtime = new MultiAgentRuntime({ cloud, agents: [codexRuntime] });
+  if (runtimes.length === 0) throw new Error("配置未启用任何 agent");
+  const runtime = new MultiAgentRuntime({ cloud, agents: runtimes });
 
   const shutdown = async () => {
     await runtime?.stop();
