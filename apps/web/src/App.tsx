@@ -1,5 +1,6 @@
 import {
   Activity,
+  GitBranch,
   Bell,
   ChevronDown,
   CircleDollarSign,
@@ -52,15 +53,17 @@ import {
   WorkstationsView,
 } from "./views.js";
 import { appText, errorLabel } from "./i18n.js";
+import { WorkflowCanvas } from "./workflow-canvas.js";
 import type { LiveChannel, LiveMessageHandler } from "./live-channel.js";
 import { PushNotificationMenu } from "./push-notification-menu.js";
 
-type ViewId = "inbox" | "workstations" | "sessions" | "usage" | "members" | "audit";
+type ViewId = "inbox" | "workstations" | "sessions" | "workflows" | "usage" | "members" | "audit";
 
 const navigation: Array<{ id: ViewId; label: string; icon: LucideIcon }> = [
   { id: "inbox", label: appText.navInbox, icon: ClipboardCheck },
   { id: "workstations", label: appText.navWorkstations, icon: Laptop },
   { id: "sessions", label: appText.navSessions, icon: Activity },
+  { id: "workflows", label: appText.navWorkflows, icon: GitBranch },
   { id: "usage", label: appText.navUsage, icon: CircleDollarSign },
   { id: "members", label: appText.navMembers, icon: UsersRound },
   { id: "audit", label: appText.navAudit, icon: History },
@@ -370,7 +373,8 @@ export function App() {
             ) : view === "workstations" ? <WorkstationsView snapshot={snapshot} onChanged={() => void load(workspaceId, false)} onToast={notify} />
               : view === "sessions" ? <SessionsView snapshot={snapshot} sessionTitles={sessionTitles} selectedId={selectedSessionId} mobileDetail={mobileDetail} online={serverConnected} liveChannel={liveChannel} onSelect={selectSession} onBack={closeMobileDetail} onCommandChange={updateSessionCommand} onToast={notify} />
                 : view === "usage" ? <UsageView snapshot={snapshot} />
-                  : view === "members" ? <MembersView snapshot={snapshot} onChanged={() => void load(workspaceId, false)} onToast={notify} />
+                  : view === "workflows" ? <WorkflowCanvas snapshot={snapshot} onToast={notify} />
+              : view === "members" ? <MembersView snapshot={snapshot} onChanged={() => void load(workspaceId, false)} onToast={notify} />
                     : <AuditView snapshot={snapshot} />}
           </div>
         </div>

@@ -792,3 +792,27 @@ td small { display: block; margin-top: 3px; color: var(--faint); font-size: 8px;
   color: var(--muted);
   text-transform: none;
 }
+
+/* Planning workflow canvas + runs (Phase 3) */
+.workflow-view { display: flex; flex-direction: column; gap: 14px; min-height: 0; flex: 1; }
+.workflow-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.workflow-error { padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; }
+.workflow-meta { display: flex; gap: 12px; flex-wrap: wrap; }
+.workflow-meta label { display: flex; flex-direction: column; gap: 4px; min-width: 220px; flex: 1; }
+.workflow-body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; min-height: 420px; flex: 1; }
+.workflow-canvas { position: relative; border: 1px solid var(--border); border-radius: 10px; min-height: 420px; }
+.workflow-canvas .react-flow { height: 100%; }
+.workflow-node-panel { position: absolute; right: 12px; top: 12px; max-height: calc(100% - 24px); overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); z-index: 5; min-width: 240px; max-width: 280px; }
+.workflow-node-panel label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; }
+.workflow-runs { display: flex; flex-direction: column; gap: 8px; }
+.workflow-run-line { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
+.run-status-badge { margin-left: 8px; font-size: 11px; color: var(--muted); }
+.run-nodes { display: flex; flex-wrap: wrap; gap: 4px; }
+.run-node-badge { padding: 1px 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 10px; }
+.node-completed { color: var(--green); }
+.node-failed { color: var(--danger, #c0392b); }
+.node-running, .node-verifying { color: var(--accent); }
+@media (max-width: 900px) {
+  .workflow-body { grid-template-columns: 1fr; }
+  .workflow-node-panel { position: static; max-width: none; }
+}

@@ -118,6 +118,92 @@ export async function revokeWorkstation(workspaceId: string, workstationId: stri
   });
 }
 
+export interface WorkflowNodeInput {
+  id: string;
+  agentKind: string;
+  model?: string;
+  reasoningEffort?: string;
+  task: string;
+  handoffPrompt?: string;
+  condition: { kind: string; criteriaText?: string; maxRetries: number; backoffMs: number };
+  turnBudget: number;
+  timeoutMs: number;
+}
+
+export interface WorkflowSummary {
+  id: string;
+  workspaceId: string;
+  workstationId: string;
+  name: string;
+  goal: string;
+  definition: { version: 1; workflowId: string; goal: string; workstationId: string; nodes: WorkflowNodeInput[] };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkflowRunSummary {
+  id: string;
+  workflowId: string;
+  workstationId: string;
+  status: string;
+  currentNodeIndex: number;
+  reasonCode?: string;
+  createdAt: string;
+  updatedAt: string;
+  nodes?: Array<{ nodeId: string; status: string; attempts: number; reasonCode?: string }>;
+}
+
+export async function createWorkflow(
+  workspaceId: string,
+  input: { name: string; goal: string; workstationId: string; nodes: WorkflowNodeInput[] },
+): Promise<WorkflowSummary> {
+  return request<WorkflowSummary>(appUrl("api/workflows"), {
+    method: "POST",
+    body: JSON.stringify({ workspaceId, ...input }),
+  });
+}
+
+export async function listWorkflows(workspaceId: string): Promise<WorkflowSummary[]> {
+  return request<WorkflowSummary[]>(appUrl(`api/workflows?workspaceId=${encodeURIComponent(workspaceId)}`));
+}
+
+export async function getWorkflow(workspaceId: string, workflowId: string): Promise<WorkflowSummary & { runs: WorkflowRunSummary[] }> {
+  return request(appUrl(`api/workflows/${encodeURIComponent(workflowId)}?workspaceId=${encodeURIComponent(workspaceId)}`));
+}
+
+export async function updateWorkflow(
+  workspaceId: string,
+  workflowId: string,
+  input: { name: string; goal: string; workstationId: string; nodes: WorkflowNodeInput[] },
+): Promise<WorkflowSummary> {
+  return request<WorkflowSummary>(appUrl(`api/workflows/${encodeURIComponent(workflowId)}`), {
+    method: "PUT",
+    body: JSON.stringify({ workspaceId, ...input }),
+  });
+}
+
+export async function deleteWorkflow(workspaceId: string, workflowId: string): Promise<void> {
+  await request(appUrl(`api/workflows/${encodeURIComponent(workflowId)}?workspaceId=${encodeURIComponent(workspaceId)}`), { method: "DELETE" });
+}
+
+export async function runWorkflow(workflowId: string, workspaceId: string): Promise<WorkflowRunSummary> {
+  return request<WorkflowRunSummary>(appUrl(`api/workflows/${encodeURIComponent(workflowId)}/run`), {
+    method: "POST",
+    body: JSON.stringify({ workspaceId }),
+  });
+}
+
+export async function cancelWorkflowRun(workspaceId: string, runId: string): Promise<WorkflowRunSummary> {
+  return request<WorkflowRunSummary>(appUrl(`api/workflow-runs/${encodeURIComponent(runId)}/cancel`), {
+    method: "POST",
+    body: JSON.stringify({ workspaceId }),
+  });
+}
+
+export async function getWorkflowRuns(workspaceId: string, workflowId: string): Promise<WorkflowRunSummary[]> {
+  return request<WorkflowRunSummary[]>(appUrl(`api/workflows/${encodeURIComponent(workflowId)}/runs?workspaceId=${encodeURIComponent(workspaceId)}`));
+}
+
 export async function getPushCapability(): Promise<PushCapability> {
   return request<PushCapability>(appUrl("api/push/config"));
 }
