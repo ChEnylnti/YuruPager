@@ -17,6 +17,11 @@ struct MoreView: View {
                     } label: {
                         Label("审计历史", systemImage: "list.clipboard")
                     }
+                    NavigationLink {
+                        WorkflowsView()
+                    } label: {
+                        Label("工作流", systemImage: "flowchart")
+                    }
                 }
                 Section("账户") {
                     if let user = store.user {

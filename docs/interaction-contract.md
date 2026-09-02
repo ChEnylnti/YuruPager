@@ -732,3 +732,24 @@ Web/iOS 快照中的 SessionSummary 携带 `agent` 字段并在会话行与详�
 - 未上报用量的 agent（如经适配器的 Claude Code 与 ACP 代理）在界面上如实
   显示用量不可用；Cursor 的 result 用量累计为累积快照，provider 为 `cursor`，
   无价格目录条目时估算成本留空。任何 agent 都不得构造用量数据。
+
+## 15. 规划工作流验收标准
+
+多 Agent 接力的可测验收条目（对应 ADR-032~036 与 PRD §7.9）：
+
+| # | 场景 | 操作 | 预期 |
+|---|---|---|---|
+| W1 | 定义校验 | 保存含分支、环、孤立节点或空任务节点的画布 | 保存与运行被阻断，提示具体原因 |
+| W2 | 运行授权 | 无 can_orchestrate 的成员点击运行 | 403 orchestration_not_allowed，不产生 Run |
+| W3 | 单活动 Run | 同一工作流存在 running Run 时再次运行 | 409 workflow_run_active |
+| W4 | 状态机 | 观察 agent_confirm 节点 | 依次出现 starting → running → verifying → completed，Run 随之 completed |
+| W5 | hand-off 渲染 | 下一节点 prompt 含上一节点产物 | `{{prev.finalMessage}}` / `{{prev.checkSummary}}` 渲染为实际文本；模板输出只存在于内存与 ephemeral 帧 |
+| W6 | criteria 失败重试 | 校验 FAIL 且 maxRetries ≥ 1 | 节点以递增 attempts 重派；重试耗尽 → 节点 failed → Run failed（reasonCode check_failed:*） |
+| W7 | 预算护栏 | turn_budget 耗尽 | 节点 failed，reasonCode turn_budget_exhausted，Run 失败 |
+| W8 | manual_gate | gate 到达请求列表 | kind 为 workflow_gate 的请求出现；拒绝需填写理由；拒绝 → 节点 failed（gate_denied）；批准 → 交接 |
+| W9 | gate 冲突/超时 | 两个决定竞争或 gate 过期 | first valid decision wins；过期按拒绝处理（fail-closed） |
+| W10 | 崩溃恢复 | Connector 在节点执行中重启 | 节点标 interrupted（reasonCode connector_restarted）并按重试策略重派 |
+| W11 | 离线阻塞 | Connector 掉线 | 节点标 blocked_offline（workstation_offline）；重连后按重试策略重派，不假设完成 |
+| W12 | 隐私边界 | 检查运行期间的所有持久化载荷 | 交接文本与 agent 产出不出现在 PostgreSQL、审计文本、outbox 载荷或 Service Worker 缓存 |
+| W13 | 能力门控 | 节点指定目录外的 model/effort | 节点 failed（model_unavailable:*），不静默降级到默认值 |
+| W14 | 取消 | 运行中取消 | Run 与未完成节点标 cancelled；cancel 消息经 outbox 下发到 Connector |

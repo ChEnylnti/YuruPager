@@ -1,6 +1,6 @@
 # YuruPager 技术选型与架构决策
 
-- 文档版本：v1.8
+- 文档版本：v1.9
 - 状态：关键 Spike 完成，进入 MVP 实施
 - 更新日期：2026-08-30
 - 关联需求：[产品需求文档](./product-requirements.md)
@@ -53,11 +53,11 @@
 | ADR-029 | Cursor 经原生 stream-json 适配器接入（事件协议非 JSON-RPC） | Phase 3 采纳 |
 | ADR-030 | ZCode 经原生 `zcode app-server`（ZCode Protocol stdio JSON-RPC）接入，监督模式强制 build/edit，版本门 0.16.x | 草案（spike 回填后定稿） |
 | ADR-031 | DeepSeek Harness（dsh）经插件桥/api-gateway 接入，pre-step 审批门 + session/event 增量 | 搁置（适配器未落地；如需补齐单独立项） |
-| ADR-032 | 规划工作流编排归属：Connector 唯一执行器，Server 持久化定义+Run 状态机并经 outbox/inbox 下发，交接文本与 agent 产出不入库 | 草案 |
-| ADR-033 | 节点完成条件范式：agent_confirm / criteria_check / manual_gate 三选一，恒定 turn_budget+timeout 护栏，未确认绝不交接 | 草案 |
-| ADR-034 | 会话选项扩展：AgentRuntime 按会话指定 model/reasoningEffort，能力目录进 AgentCapabilities，各 runtime 写原生映射表 | 草案 |
-| ADR-035 | Web 画布采用 React Flow（@xyflow/react），移动端 v1 只做运行监控 | 草案 |
-| ADR-036 | 工作流权限与审计：定义 CRUD=member+，运行/取消需 can_orchestrate 授权，manual_gate 复用审批与高危确认通道，全量审计 | 草案 |
+| ADR-032 | 规划工作流编排归属：Connector 唯一执行器，Server 持久化定义+Run 状态机并经 outbox/inbox 下发，交接文本与 agent 产出不入库 | 采纳（Phase 1/2 落地） |
+| ADR-033 | 节点完成条件范式：agent_confirm / criteria_check / manual_gate 三选一，恒定 turn_budget+timeout 护栏，未确认绝不交接 | 采纳（Phase 1 落地） |
+| ADR-034 | 会话选项扩展：AgentRuntime 按会话指定 model/reasoningEffort，能力目录进 AgentCapabilities，各 runtime 写原生映射表 | 采纳（Phase 1 落地） |
+| ADR-035 | Web 画布采用 React Flow（@xyflow/react），移动端 v1 只做运行监控 | 采纳（Phase 3 落地） |
+| ADR-036 | 工作流权限与审计：定义 CRUD=member+，运行/取消需 can_orchestrate 授权，manual_gate 复用审批与高危确认通道，全量审计 | 采纳（Phase 2 落地） |
 
 ## 3. Codex 能力证据基线
 
@@ -1252,7 +1252,7 @@ ZCode 0.16.5 提供 `zcode app-server` 子命令（官方描述 "Run the ZCode P
 
 ## ADR-032：编排归属与数据边界
 
-- 状态：草案（Phase 1 落地后定稿）
+- 状态：采纳（Phase 1/2 落地）
 - 决策日期：2026-08-30
 
 ### 背景与约束
@@ -1278,7 +1278,7 @@ ZCode 0.16.5 提供 `zcode app-server` 子命令（官方描述 "Run the ZCode P
 
 ## ADR-033：节点完成条件范式
 
-- 状态：草案（Phase 1 落地后定稿）
+- 状态：采纳（Phase 1 落地）
 - 决策日期：2026-08-30
 
 ### 背景与选择
@@ -1298,7 +1298,7 @@ ZCode 0.16.5 提供 `zcode app-server` 子命令（官方描述 "Run the ZCode P
 
 ## ADR-034：会话选项扩展（model / reasoningEffort）
 
-- 状态：草案（Phase 1 落地后定稿）
+- 状态：采纳（Phase 1 落地）
 - 决策日期：2026-08-30
 
 ### 背景与选择
@@ -1314,7 +1314,7 @@ ZCode 0.16.5 提供 `zcode app-server` 子命令（官方描述 "Run the ZCode P
 
 ## ADR-035：Web 画布技术选型
 
-- 状态：草案（Phase 3 落地后定稿）
+- 状态：采纳（Phase 3 落地，@xyflow/react）
 - 决策日期：2026-08-30
 
 ### 候选方案
@@ -1328,7 +1328,7 @@ ZCode 0.16.5 提供 `zcode app-server` 子命令（官方描述 "Run the ZCode P
 
 ## ADR-036：工作流权限与审计
 
-- 状态：草案（Phase 2 落地后定稿）
+- 状态：采纳（Phase 2 落地，迁移 0004 can_orchestrate）
 - 决策日期：2026-08-30
 
 ### 选择结果
@@ -1366,6 +1366,10 @@ ZCode 0.16.5 提供 `zcode app-server` 子命令（官方描述 "Run the ZCode P
 - 任何降低默认拒绝、租户隔离或审计完整性的变更必须经过安全评审。
 
 ## 7. 版本记录
+
+### v1.9（2026-08-31）
+
+- ADR-032～036 定稿为采纳：规划工作流全链路（协议、迁移 0003/0004、Connector 编排引擎、REST + outbox 投递、React Flow 画布、iOS 运行监控与 gate 审批）。
 
 ### v1.8（2026-08-30）
 

@@ -275,6 +275,27 @@ User
 - 所有服务端查询和写入必须执行工作空间级授权校验。
 - 支持成员撤销、设备撤销和凭证轮换立即生效。
 
+### 7.9 规划工作流（多 Agent 接力，v1）
+
+规划工作流允许把多个 Agent 节点按线性链编排，前一个节点的产出经确认后交接给下一个节点。
+
+**范围（v1 采纳）**：
+
+- 节点四要素：执行者（agent kind + model + reasoningEffort 归一化枚举）、任务模板（支持
+  `{{workflow.goal}}`、`{{node.task}}`、`{{prev.finalMessage}}`、`{{prev.checkSummary}}`）、
+  完成条件、交接提示词。
+- 完成条件三选一：agent_confirm（固定自检 prompt 输出 PASS/FAIL）、criteria_check（按用户标准校验）、
+  manual_gate（人工审批门，复用审批链路，kind 为 workflow_gate）；恒定护栏 turn_budget + timeout。
+- 编排归属：Connector 唯一执行器；Server 持久化定义 + Run 状态机并经 outbox/inbox 下发；交接文本与
+  agent 产出是会话内容，永不进入 PostgreSQL、审计文本、outbox 或 Service Worker 缓存。
+- Web 桌面提供 React Flow 画布编辑与运行监控；移动 PWA 与 iOS 只做运行监控与 gate 审批。
+- 权限：定义 CRUD 为 workspace member+；运行/取消需工作站 can_orchestrate 授权；全部记审计。
+- fail-closed：完成条件未确认绝不交接；gate 默认拒绝；模型/思考程度不在能力目录内时运行时报错，
+  不静默降级。
+
+**v1 边界（不做）**：并行分支、循环、条件路由、跨工作站工作流、定时触发、模板市场、移动端画布编辑、
+非 agent 能力范围内的图片交接。
+
 ## 8. 请求状态
 
 - `pending`：等待用户处理。

@@ -36,6 +36,8 @@ final class AppStore: ObservableObject {
     }
 
     private var api: APIClient
+    /// Read-only API access for monitoring views (workflows run list).
+    public var workflowsAPI: APIClient { api }
     private var live: LiveSocketClient
     private let cookieVault = SecureCookieVault()
     private var refreshTask: Task<Void, Never>?

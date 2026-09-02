@@ -24,6 +24,7 @@ public enum WorkspaceKind: String, Codable, Sendable {
 
 public enum RequestKind: String, Codable, Sendable {
     case approval, question
+    case workflowGate = "workflow_gate"
 }
 
 public enum SessionCommandStatus: String, Codable, Sendable {
@@ -290,4 +291,37 @@ public struct DecisionResult: Codable, Sendable {
 public struct SessionCommandResult: Codable, Sendable {
     public let command: SessionCommandSummary
     public let replayed: Bool
+}
+
+
+// MARK: - Planning workflows (ADR-032..036). iOS monitors runs and approves
+// gates; canvas editing stays desktop-only by design.
+
+public struct WorkflowSummary: Codable, Identifiable, Hashable, Sendable {
+    public let id: String
+    public let workspaceId: String
+    public let workstationId: String
+    public let name: String
+    public let goal: String
+    public let updatedAt: String
+}
+
+public struct WorkflowRunNodeSummary: Codable, Identifiable, Hashable, Sendable {
+    public let nodeId: String
+    public let status: String
+    public let attempts: Int
+    public let reasonCode: String?
+
+    public var id: String { nodeId }
+}
+
+public struct WorkflowRunSummary: Codable, Identifiable, Hashable, Sendable {
+    public let id: String
+    public let workflowId: String
+    public let status: String
+    public let currentNodeIndex: Int
+    public let reasonCode: String?
+    public let createdAt: String
+    public let updatedAt: String
+    public let nodes: [WorkflowRunNodeSummary]?
 }

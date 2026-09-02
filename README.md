@@ -147,6 +147,18 @@ An empty `command` resolves through the built-in presets for `gemini`,
 `claude-code`, `opencode`, `amp`, `crush`, and `qwen-code`; unknown kinds
 without a command fail closed.
 
+## Planning workflows
+
+Chain multiple agents into a linear pipeline on one workstation: each node
+runs its task with a chosen agent/model/reasoning effort, its completion is
+verified (agent self-check PASS/FAIL, user-defined criteria, or a manual
+approval gate), and only then does the hand-off template feed the next node
+— fail-closed, never an unverified hand-off. The desktop console offers a
+React Flow canvas editor with validation and auto-save; web/mobile and iOS
+provide run monitoring and gate approvals. Hand-off text and agent output
+are session content: they live in workstation memory and the ephemeral
+channel only. See the interaction contract (§14–15) and ADR-032..036.
+
 ## Connect another Codex workstation
 
 1. Sign in to YuruPager and open **Workstations**.

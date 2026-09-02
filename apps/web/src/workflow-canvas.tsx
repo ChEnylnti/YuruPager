@@ -163,6 +163,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps): React.JSX.Element {
   const { onToast } = props;
   const workstations = props.snapshot.workstations;
   const [workstationId, setWorkstationId] = useState(workstations[0]?.id ?? "");
+  const workspaceId = workstations.find((workstation) => workstation.id === workstationId)?.workspaceId ?? "";
   const [items, setItems] = useState<WorkflowSummary[]>([]);
   const [selected, setSelected] = useState<WorkflowSummary | null>(null);
   const [name, setName] = useState("");
@@ -186,13 +187,13 @@ export function WorkflowCanvas(props: WorkflowCanvasProps): React.JSX.Element {
   const loadList = useCallback(async () => {
     if (workstationId === "") return;
     try {
-      const all = await listWorkflows(props.snapshot.scopeWorkspaceId ?? "");
+      const all = await listWorkflows(workspaceId);
       setItems(all.filter((workflow) => workflow.workstationId === workstationId));
       setLoadError(null);
     } catch (reason) {
       setLoadError(errorLabel(reason, workflowText.listFailed));
     }
-  }, [props.snapshot.scopeWorkspaceId, workstationId]);
+  }, [workspaceId, workstationId]);
 
   useEffect(() => {
     if (loadedFor.current === workstationId) return;
@@ -207,11 +208,11 @@ export function WorkflowCanvas(props: WorkflowCanvasProps): React.JSX.Element {
     setNodes(snapshotToNodes(workflow.definition));
     setEdges(snapshotToEdges(workflow.definition));
     try {
-      setRuns(await getWorkflowRuns(props.snapshot.scopeWorkspaceId ?? "", workflow.id));
+      setRuns(await getWorkflowRuns(workspaceId, workflow.id));
     } catch {
       setRuns([]);
     }
-  }, [props.snapshot.scopeWorkspaceId]);
+  }, [workspaceId]);
 
   const handleNew = useCallback(() => {
     setSelected(null);
@@ -231,7 +232,12 @@ export function WorkflowCanvas(props: WorkflowCanvasProps): React.JSX.Element {
       data: { ...emptyNodeData(), label: `#${nodes.length + 1}` },
     };
     setNodes((current) => [...current, newNode]);
-  }, [nodes.length, setNodes]);
+    // v1 is a linear chain: a new node automatically chains to the current tail.
+    const tail = nodes.at(-1);
+    if (tail !== undefined) {
+      setEdges((current) => [...current, { id: `e-${tail.id}-${id}`, source: tail.id, target: id }]);
+    }
+  }, [nodes, setEdges, setNodes]);
 
   const handleConnect = useCallback((connection: Connection) => {
     setEdges((current) => addEdge({ ...connection, animated: false }, current));
@@ -246,7 +252,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps): React.JSX.Element {
   const handleDelete = useCallback(async () => {
     if (selected === null) return;
     try {
-      await deleteWorkflow(props.snapshot.scopeWorkspaceId ?? "", selected.id);
+      await deleteWorkflow(workspaceId, selected.id);
       onToast(workflowText.deletedToast, "success");
       setSelected(null);
       handleNew();
@@ -254,7 +260,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps): React.JSX.Element {
     } catch (reason) {
       onToast(errorLabel(reason, workflowText.deleteFailed), "error");
     }
-  }, [handleNew, loadList, props.snapshot.scopeWorkspaceId, selected]);
+  }, [handleNew, loadList, selected, workspaceId]);
 
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoSave = useCallback(() => {
@@ -266,11 +272,11 @@ export function WorkflowCanvas(props: WorkflowCanvasProps): React.JSX.Element {
         const input = { name: name.trim(), goal: goal.trim(), workstationId, nodes: nodeInputs };
         try {
           if (selected === null) {
-            const created = await createWorkflow(props.snapshot.scopeWorkspaceId ?? "", input);
+            const created = await createWorkflow(workspaceId, input);
             setSelected(created);
             void loadList();
           } else {
-            const updated = await updateWorkflow(props.snapshot.scopeWorkspaceId ?? "", selected.id, input);
+            const updated = await updateWorkflow(workspaceId, selected.id, input);
             setSelected(updated);
             void loadList();
           }
@@ -279,7 +285,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps): React.JSX.Element {
         }
       })();
     }, 800);
-  }, [goal, loadList, name, nodes, props.snapshot.scopeWorkspaceId, selected, workstationId]);
+  }, [goal, loadList, name, nodes, selected, workspaceId, workstationId]);
 
   useEffect(() => {
     if (nodes.length === 0 && name.length === 0) return;
@@ -317,17 +323,17 @@ export function WorkflowCanvas(props: WorkflowCanvasProps): React.JSX.Element {
     };
     try {
       if (selected === null) {
-        const created = await createWorkflow(props.snapshot.scopeWorkspaceId ?? "", input);
+        const created = await createWorkflow(workspaceId, input);
         setSelected(created);
       } else {
-        await updateWorkflow(props.snapshot.scopeWorkspaceId ?? "", selected.id, input);
+        await updateWorkflow(workspaceId, selected.id, input);
       }
       onToast(workflowText.savedToast, "success");
       void loadList();
     } catch (reason) {
       onToast(errorLabel(reason, workflowText.saveFailed), "error");
     }
-  }, [goal, loadList, name, nodes, props.snapshot.scopeWorkspaceId, selected, validate, workstationId]);
+  }, [goal, loadList, name, nodes, selected, validate, workstationId, workspaceId]);
 
   const handleRun = useCallback(async () => {
     const validationError = validate();
@@ -340,19 +346,19 @@ export function WorkflowCanvas(props: WorkflowCanvasProps): React.JSX.Element {
       return;
     }
     try {
-      const run = await runWorkflow(selected.id, props.snapshot.scopeWorkspaceId ?? "");
+      const run = await runWorkflow(selected.id, workspaceId);
       setActiveRun(run);
       onToast(workflowText.runStartedToast, "success");
-      setRuns(await getWorkflowRuns(props.snapshot.scopeWorkspaceId ?? "", selected.id));
+      setRuns(await getWorkflowRuns(workspaceId, selected.id));
     } catch (reason) {
       onToast(errorLabel(reason, workflowText.runFailed), "error");
     }
-  }, [props.snapshot.scopeWorkspaceId, selected, validate]);
+  }, [selected, workspaceId, validate]);
 
   const handleCancel = useCallback(async () => {
     if (activeRun === null) return;
     try {
-      const cancelled = await cancelWorkflowRun(props.snapshot.scopeWorkspaceId ?? "", activeRun.id);
+      const cancelled = await cancelWorkflowRun(workspaceId, activeRun.id);
       setActiveRun(cancelled);
       onToast(workflowText.cancelledToast, "success");
     } catch (reason) {
@@ -363,7 +369,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps): React.JSX.Element {
   const refreshRuns = useCallback(async () => {
     if (selected === null) return;
     try {
-      const updated = await getWorkflowRuns(props.snapshot.scopeWorkspaceId ?? "", selected.id);
+      const updated = await getWorkflowRuns(workspaceId, selected.id);
       setRuns(updated);
       const latest = updated[0] ?? null;
       if (latest !== null && (latest.status === "running" || latest.status === "pending")) setActiveRun(latest);
@@ -371,7 +377,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps): React.JSX.Element {
     } catch {
       // transient
     }
-  }, [props.snapshot.scopeWorkspaceId, selected]);
+  }, [selected, workspaceId]);
 
   useEffect(() => {
     if (selected === null) return;

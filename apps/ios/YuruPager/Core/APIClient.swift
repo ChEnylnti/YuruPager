@@ -61,6 +61,24 @@ public actor APIClient {
         let _: EmptyResponse = try await request("api/auth/logout", method: "POST")
     }
 
+    // MARK: Planning workflows (run monitoring + gate approval; no editing on iOS)
+
+    public func workflows(workspaceId: String) async throws -> [WorkflowSummary] {
+        try await request("api/workflows?workspaceId=\(workspaceId)")
+    }
+
+    public func workflowRuns(workflowId: String, workspaceId: String) async throws -> [WorkflowRunSummary] {
+        try await request("api/workflows/\(workflowId)/runs?workspaceId=\(workspaceId)")
+    }
+
+    public func cancelWorkflowRun(runId: String, workspaceId: String) async throws -> WorkflowRunSummary {
+        try await request(
+            "api/workflow-runs/\(runId)/cancel",
+            method: "POST",
+            body: ["workspaceId": workspaceId]
+        )
+    }
+
     public func snapshot(workspaceId: String?) async throws -> Snapshot {
         var path = "api/snapshot"
         if let workspaceId {

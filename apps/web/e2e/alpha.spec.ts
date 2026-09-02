@@ -1131,3 +1131,115 @@ ${"long/path/segment/with-command-output-boundary ".repeat(18)}
     Object.defineProperty(window, "WebSocket", { configurable: true, value: ConversationSocket });
   }, imageFixture);
 }
+
+test("planning workflow main chain: create, run, gate, complete", async ({ page }) => {
+  const { Client } = await import("pg");
+  const client = new Client({ connectionString: "postgres://postgres:postgres@127.0.0.1:55432/yurupager" });
+  await client.connect();
+  try {
+    const workstationId = "30000000-0000-4000-8000-000000000001";
+    const gateRequestId = `91000000-0000-4000-8000-${Date.now().toString(16).padStart(12, "0")}`;
+    // Idempotent cleanup for reruns against the persistent dev database.
+    await client.query("DELETE FROM workflow_runs WHERE workflow_id IN (SELECT id FROM workflows WHERE name = 'E2E 主链路工作流')");
+    await client.query("DELETE FROM workflows WHERE name = 'E2E 主链路工作流'");
+    await client.query("DELETE FROM agent_requests WHERE id = '91000000-0000-4000-8000-000000000001'");
+    // can_orchestrate for alice on the seeded workstation
+    await client.query(
+      `UPDATE workstation_access SET can_orchestrate = true
+        WHERE workspace_id = '20000000-0000-4000-8000-000000000002' AND workstation_id = $1
+          AND user_id = '10000000-0000-4000-8000-000000000001'`,
+      [workstationId],
+    );
+
+    await setViewportSize(page, 1440, 900);
+    await login(page, "alice@yurupager.local");
+    await selectWorkspace(page, companyWorkspace);
+
+    // Canvas: create a two-node workflow with a manual gate on the last node.
+    const workflowNav = page.locator(".side-nav").getByRole("button", { name: "工作流", exact: true });
+    await workflowNav.click();
+    await expect(page.getByRole("heading", { name: "工作流", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "添加节点" }).click();
+    await page.getByRole("button", { name: "添加节点" }).click();
+    await page.getByPlaceholder("例如：发布流水线").fill("E2E 主链路工作流");
+    await page.getByPlaceholder("{{workflow.goal}} 注入各节点任务").fill("完成 e2e 主链路");
+    const panels = page.locator("fieldset.workflow-node-panel");
+    await panels.nth(0).getByPlaceholder(/workflow\.goal/).fill("第一阶段任务");
+    await panels.nth(1).getByPlaceholder(/prev\.finalMessage/).fill("复核上一阶段产出");
+    await panels.nth(1).locator("select").nth(2).selectOption("manual_gate");
+
+    await page.getByRole("button", { name: "保存", exact: true }).click();
+    await expect(page.getByText("工作流已保存")).toBeVisible();
+
+    // Run through the UI.
+    await page.getByRole("button", { name: "运行", exact: true }).click();
+    await expect(page.getByText("工作流已开始运行")).toBeVisible();
+
+    // The dispatch reached the connector outbox.
+    const outbox = await client.query(
+      `SELECT message_type FROM connector_outbox
+        WHERE message_type IN ('workflow.dispatch', 'workflow.cancel') ORDER BY sequence`);
+    const dispatches = outbox.rows.filter((row) => row.message_type === "workflow.dispatch");
+    expect(dispatches.length).toBeGreaterThanOrEqual(1);
+    const runRow = await client.query(
+      "SELECT id FROM workflow_runs ORDER BY created_at DESC LIMIT 1");
+    const runId = runRow.rows[0]?.id as string;
+
+    // Connector reports the gate node waiting for approval (server updates).
+    await client.query(
+      `UPDATE workflow_node_runs SET status = 'waiting_approval'
+        WHERE workspace_id = '20000000-0000-4000-8000-000000000002' AND run_id = $1
+          AND node_id = (SELECT node_id FROM workflow_node_runs
+                          WHERE run_id = $1 ORDER BY node_index DESC LIMIT 1)`,
+      [runId],
+    );
+
+    // The gate arrives as a workflow_gate request in the shared inbox.
+    await client.query(
+      `INSERT INTO agent_requests
+         (workspace_id, id, workstation_id, session_id, turn_id, item_id, kind, category, tool, risk,
+          context, status, delivery_status, requested_at, expires_at)
+       VALUES ('20000000-0000-4000-8000-000000000002', $2,
+               $1, '40000000-0000-4000-8000-000000000001', 'turn-alpha-7', 'gate-item-e2e',
+               'workflow_gate', 'workflow', 'manual_gate', 'high',
+               '{"reason":"workflow_gate:node-2","availableDecisions":["approve","deny"]}'::jsonb,
+               'pending', 'not_queued', now(), now() + interval '1 hour')`,
+      [workstationId, gateRequestId],
+    );
+    await page.reload();
+    await page.locator(".side-nav").getByRole("button", { name: "请求", exact: true }).click();
+    await selectWorkspace(page, companyWorkspace);
+    const gateRow = page.locator("button.request-row").filter({ hasText: "manual_gate" }).first();
+    await gateRow.click();
+    await expect(page.getByRole("heading", { name: "请求上下文" })).toBeVisible();
+    await page.getByRole("button", { name: /拒绝/ }).click();
+    await page.getByLabel("原因", { exact: true }).fill("e2e 拒绝验证");
+    await page.getByRole("button", { name: "提交拒绝" }).click();
+    await expect(page.getByText("请求已拒绝")).toBeVisible();
+
+    // Connector finishes the run; the UI reflects the terminal status.
+    await client.query(
+      `UPDATE workflow_node_runs SET status = 'failed', reason_code = 'gate_denied'
+        WHERE workspace_id = '20000000-0000-4000-8000-000000000002' AND run_id = $1`,
+      [runId],
+    );
+    await client.query(
+      `UPDATE workflow_runs SET status = 'failed', reason_code = 'gate_denied'
+        WHERE id = $1`,
+      [runId],
+    );
+    await page.goto("/");
+    await selectWorkspace(page, companyWorkspace);
+    await page.locator(".side-nav").getByRole("button", { name: "工作流", exact: true }).click();
+    const picker = page.getByLabel(/打开已保存工作流/);
+    await expect(picker).toBeVisible();
+    await picker.selectOption({ label: "E2E 主链路工作流" });
+    await expect(page.locator(".workflow-run-line").filter({ hasText: "failed" }).first()).toBeVisible();
+  } finally {
+    await client.end();
+  }
+});
+
+async function setViewportSize(page: Page, width: number, height: number): Promise<void> {
+  await page.setViewportSize({ width, height });
+}

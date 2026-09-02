@@ -17,7 +17,7 @@ struct RequestDetailView: View {
                 ContentUnavailableView("请求不可用", systemImage: "exclamationmark.triangle", description: Text("请求可能已被移除或你不再有权查看。"))
             }
         }
-        .navigationTitle(request?.kind == .question ? "代理提问" : "审批详情")
+        .navigationTitle(request?.kind == .question ? "代理提问" : request?.kind == .workflowGate ? "工作流审批" : "审批详情")
         .navigationBarTitleDisplayMode(.inline)
         .onDisappear {
             answers.removeAll()
@@ -182,7 +182,7 @@ struct RequestDetailView: View {
     @ViewBuilder
     private func actionBar(_ request: RequestSummary) -> some View {
         if request.status == .pending {
-            if request.kind == .approval {
+            if request.kind == .approval || request.kind == .workflowGate {
                 HStack(spacing: 12) {
                     Button(role: .destructive) { dialog = .deny } label: {
                         Label("拒绝", systemImage: "xmark")

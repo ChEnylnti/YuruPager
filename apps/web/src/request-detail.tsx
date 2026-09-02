@@ -243,7 +243,7 @@ export function RequestDetail({
         </section>
       </div>
 
-      {request.kind === "approval" && (
+      {(request.kind === "approval" || request.kind === "workflow_gate") && (
         <footer className="decision-bar" aria-label={requestDetailText.decisionBarAria}>
           {request.status === "pending" ? (
             <>
