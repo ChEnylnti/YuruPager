@@ -27,6 +27,8 @@ import {
   useMemo,
   useRef,
   useState,
+  lazy,
+  Suspense,
   type FormEvent,
   type ReactNode,
 } from "react";
@@ -53,7 +55,7 @@ import {
   WorkstationsView,
 } from "./views.js";
 import { appText, errorLabel } from "./i18n.js";
-import { WorkflowCanvas } from "./workflow-canvas.js";
+const WorkflowCanvas = lazy(() => import("./workflow-canvas.js").then((module) => ({ default: module.WorkflowCanvas })));
 import type { LiveChannel, LiveMessageHandler } from "./live-channel.js";
 import { PushNotificationMenu } from "./push-notification-menu.js";
 
@@ -373,7 +375,7 @@ export function App() {
             ) : view === "workstations" ? <WorkstationsView snapshot={snapshot} onChanged={() => void load(workspaceId, false)} onToast={notify} />
               : view === "sessions" ? <SessionsView snapshot={snapshot} sessionTitles={sessionTitles} selectedId={selectedSessionId} mobileDetail={mobileDetail} online={serverConnected} liveChannel={liveChannel} onSelect={selectSession} onBack={closeMobileDetail} onCommandChange={updateSessionCommand} onToast={notify} />
                 : view === "usage" ? <UsageView snapshot={snapshot} />
-                  : view === "workflows" ? <WorkflowCanvas snapshot={snapshot} onToast={notify} />
+                  : view === "workflows" ? <Suspense fallback={<div className="view-loading" role="status">Loading…</div>}><WorkflowCanvas snapshot={snapshot} onToast={notify} /></Suspense>
               : view === "members" ? <MembersView snapshot={snapshot} onChanged={() => void load(workspaceId, false)} onToast={notify} />
                     : <AuditView snapshot={snapshot} />}
           </div>
