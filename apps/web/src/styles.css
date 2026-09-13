@@ -794,15 +794,18 @@ td small { display: block; margin-top: 3px; color: var(--faint); font-size: 8px;
 }
 
 /* Planning workflow canvas + runs (Phase 3) */
-.workflow-view { display: flex; flex-direction: column; gap: 14px; min-height: 0; flex: 1; }
-.workflow-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.workflow-view { display: flex; flex-direction: column; gap: 18px; min-height: 0; flex: 1; }
+.workflow-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 4px 0; }
+.workflow-toolbar h1 { letter-spacing: -0.02em; }
 .workflow-error { padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; }
 .workflow-meta { display: flex; gap: 12px; flex-wrap: wrap; }
 .workflow-meta label { display: flex; flex-direction: column; gap: 4px; min-width: 220px; flex: 1; }
-.workflow-body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; min-height: 420px; flex: 1; }
-.workflow-canvas { position: relative; border: 1px solid var(--border); border-radius: 10px; min-height: 420px; }
+.workflow-body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; min-height: 520px; flex: 1; }
+.workflow-canvas { position: relative; border: 1px solid color-mix(in srgb, var(--border) 75%, transparent); border-radius: 16px; min-height: 520px; overflow: hidden; background: linear-gradient(145deg, color-mix(in srgb, var(--surface) 92%, #dce9f5), var(--surface)); box-shadow: 0 14px 35px rgb(20 35 55 / 8%); }
 .workflow-canvas .react-flow { height: 100%; }
-.workflow-node-panel { position: absolute; right: 12px; top: 12px; max-height: calc(100% - 24px); overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); z-index: 5; min-width: 240px; max-width: 280px; }
+.workflow-canvas .react-flow__node { min-width: 190px; padding: 14px; border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); border-radius: 14px; background: var(--surface); box-shadow: 0 8px 22px rgb(20 35 55 / 12%); font-weight: 600; }
+.workflow-canvas .react-flow__edge-path { stroke: var(--accent); stroke-width: 2.5; }
+.workflow-node-panel { position: absolute; top: 12px; max-height: calc(100% - 24px); overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border)); border-radius: 14px; background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(12px); z-index: 5; min-width: 258px; max-width: 270px; box-shadow: 0 12px 28px rgb(20 35 55 / 12%); }
 .workflow-node-panel label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; }
 .workflow-runs { display: flex; flex-direction: column; gap: 8px; }
 .workflow-run-line { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
@@ -814,5 +817,5 @@ td small { display: block; margin-top: 3px; color: var(--faint); font-size: 8px;
 .node-running, .node-verifying { color: var(--accent); }
 @media (max-width: 900px) {
   .workflow-body { grid-template-columns: 1fr; }
-  .workflow-node-panel { position: static; max-width: none; }
+  .workflow-node-panel { position: relative; left: auto !important; top: auto; max-width: none; }
 }

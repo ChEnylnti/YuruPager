@@ -462,7 +462,7 @@ function NodePanel(props: {
 }): React.JSX.Element {
   const { node, index, onChange } = props;
   const data = node.data;
-  return React.createElement("fieldset", { className: "workflow-node-panel" },
+  return React.createElement("fieldset", { className: "workflow-node-panel", style: { left: `${16 + index * 286}px`, right: "auto" } },
     React.createElement("legend", null, `#${index + 1}`),
     React.createElement("label", null, workflowText.agentLabel,
       React.createElement("select", {
