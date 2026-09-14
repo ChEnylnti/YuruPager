@@ -437,6 +437,11 @@ export function WorkflowCanvas(props: WorkflowCanvasProps): React.JSX.Element {
             nodes, edges, onNodesChange, onEdgesChange, onConnect: handleConnect,
             fitView: true, proOptions: { hideAttribution: true },
           }, React.createElement(Background, null), React.createElement(Controls, null)),
+          nodes.length === 0 && React.createElement("div", { className: "workflow-empty", role: "status" },
+            React.createElement("div", { className: "workflow-empty-icon", "aria-hidden": "true" }, "＋"),
+            React.createElement("h2", null, "从一个节点开始"),
+            React.createElement("p", null, "添加 Agent 节点，把任务串成一条可运行的工作流。"),
+            React.createElement("button", { className: "primary-button", type: "button", onClick: handleAddNode }, workflowText.addNodeAction)),
           nodes.map((node, index) => React.createElement(NodePanel, {
             key: node.id, node, index, agentKinds,
             onChange: (patch) => updateNodeData(node.id, patch),
