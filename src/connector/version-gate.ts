@@ -14,7 +14,9 @@ export function parseCodexVersion(raw: string): CodexVersionProbe {
   if (match === null) throw new Error(`Unable to parse Codex version: ${raw}`);
   const major = Number(match[1]);
   const minor = Number(match[2]);
-  const supported = major === 0 && minor >= 145 && minor < 149;
+  // 0.154.x was verified against the live handshake, discovery, conversation,
+  // approval, token, and image adapter contracts on 2026-09-14.
+  const supported = major === 0 && ((minor >= 145 && minor < 149) || minor === 154);
   return { raw, version: match[0], supported };
 }
 
@@ -27,7 +29,7 @@ export async function enforceCodexVersion(command = "codex"): Promise<CodexVersi
   const probe = await probeCodexVersion(command);
   if (!probe.supported) {
     throw new Error(
-      `Unsupported Codex app-server version ${probe.version}; supported Alpha minors are 0.145.x through 0.148.x`,
+      `Unsupported Codex app-server version ${probe.version}; supported Alpha minors are 0.145.x through 0.148.x and 0.154.x`,
     );
   }
   return probe;

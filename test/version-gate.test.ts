@@ -8,6 +8,7 @@ test("accepts each Codex minor with a verified Alpha contract", () => {
   assert.equal(parseCodexVersion("codex-cli 0.146.0-alpha.9.2").supported, true);
   assert.equal(parseCodexVersion("codex-cli 0.147.0-alpha.1.2").supported, true);
   assert.equal(parseCodexVersion("codex-cli 0.148.0-alpha.9").supported, true);
+  assert.equal(parseCodexVersion("codex-cli 0.154.0-alpha.6.2").supported, true);
 });
 
 test("fails closed outside the verified Codex minor window", () => {
