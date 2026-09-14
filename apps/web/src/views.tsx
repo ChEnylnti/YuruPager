@@ -257,11 +257,13 @@ export function SessionsView({ snapshot, sessionTitles, selectedId, mobileDetail
   const [attachmentDrafts, setAttachmentDrafts] = useState<Record<string, DraftImageAttachment[]>>({});
   const attachmentDraftsRef = useRef(attachmentDrafts);
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(() => new Set());
+  const [collapsedAgents, setCollapsedAgents] = useState<Set<string>>(() => new Set());
   const [motionReady, setMotionReady] = useState(false);
   const scopeRef = useRef(snapshot.scopeWorkspaceId);
   const selectedSessionRef = useRef<string | undefined>(undefined);
   const selected = snapshot.sessions.find((item) => item.id === selectedId) ?? snapshot.sessions[0];
   const projects = useMemo(() => groupSessionsByProject(snapshot.sessions), [snapshot.sessions]);
+  const agents = useMemo(() => groupSessionsByAgent(projects), [projects]);
   const mobileViewport = useMobileViewport();
   const conversationActive = !mobileViewport || mobileDetail;
   useEffect(() => { attachmentDraftsRef.current = attachmentDrafts; }, [attachmentDrafts]);
@@ -300,6 +302,8 @@ export function SessionsView({ snapshot, sessionTitles, selectedId, mobileDetail
   useEffect(() => {
     if (selected === undefined) return;
     const projectId = projectGroupId(selected);
+    const agentId = selected.agent ?? "codex";
+    setCollapsedAgents((current) => { const next = new Set(current); next.delete(agentId); return next; });
     setCollapsedProjects((current) => {
       if (!current.has(projectId)) return current;
       const next = new Set(current);
@@ -310,9 +314,13 @@ export function SessionsView({ snapshot, sessionTitles, selectedId, mobileDetail
   return (
     <section className={`entity-split session-workspace t-page-slide ${motionReady ? "is-motion-ready" : ""}`} data-page={mobileDetail ? "2" : "1"}>
       <div className="entity-index session-index t-page" data-page-id="1" aria-hidden={mobileViewport && mobileDetail ? "true" : undefined} inert={mobileViewport && mobileDetail ? true : undefined}>
-        <header className="pane-heading"><div><p className="eyebrow">{viewsText.localProjectsLabel(projects.length)}</p><h1>{viewsText.sessionsHeading}</h1></div><span className="count-slot" aria-label={viewsText.sessionsCountAria(snapshot.sessions.length)}>{snapshot.sessions.length}</span></header>
+        <header className="pane-heading"><div><p className="eyebrow">{agents.length} 个 Agent · {projects.length} 个项目</p><h1>{viewsText.sessionsHeading}</h1></div><span className="count-slot" aria-label={viewsText.sessionsCountAria(snapshot.sessions.length)}>{snapshot.sessions.length}</span></header>
         <div className="entity-list session-project-list">
-          {snapshot.sessions.length === 0 ? <EmptyState icon={Activity} title={viewsText.noSessionsInRange} /> : projects.map((project) => {
+          {snapshot.sessions.length === 0 ? <EmptyState icon={Activity} title={viewsText.noSessionsInRange} /> : agents.map((agent) => {
+            const agentCollapsed = collapsedAgents.has(agent.id);
+            return <section className="session-agent-group" key={agent.id}>
+              <button className="session-agent-toggle" type="button" aria-expanded={!agentCollapsed} onClick={() => setCollapsedAgents((current) => { const next = new Set(current); if (next.has(agent.id)) next.delete(agent.id); else next.add(agent.id); return next; })}><span className="agent-badge">{agent.name}</span><strong>{agent.sessions.length} 个会话</strong><ChevronDown size={16} className={agentCollapsed ? "is-collapsed" : ""} /></button>
+              {!agentCollapsed && agent.projects.map((project) => {
             const collapsed = collapsedProjects.has(project.id);
             const regionId = `project-sessions-${project.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
             return (
@@ -351,6 +359,8 @@ export function SessionsView({ snapshot, sessionTitles, selectedId, mobileDetail
               </section>
             );
           })}
+            </section>;
+          })}
         </div>
       </div>
       <div className="entity-detail-pane session-detail-pane t-page" data-page-id="2" aria-hidden={mobileViewport && !mobileDetail ? "true" : undefined} inert={mobileViewport && !mobileDetail ? true : undefined}>
@@ -378,6 +388,7 @@ export function SessionsView({ snapshot, sessionTitles, selectedId, mobileDetail
 
 interface SessionProjectGroup {
   id: string;
+  agent: string;
   name: string;
   path: string;
   workspaceId: string;
@@ -397,6 +408,7 @@ export function groupSessionsByProject(sessions: SessionSummary[]): SessionProje
     }
     groups.set(id, {
       id,
+      agent: session.agent ?? "codex",
       name: session.projectName,
       path: session.projectPath,
       workspaceId: session.workspaceId,
@@ -408,7 +420,19 @@ export function groupSessionsByProject(sessions: SessionSummary[]): SessionProje
 }
 
 function projectGroupId(session: SessionSummary): string {
-  return `${session.workspaceId}:${session.workstationId}:${session.projectKey}`;
+  return `${session.agent ?? "codex"}:${session.workspaceId}:${session.workstationId}:${session.projectKey}`;
+}
+
+interface SessionAgentGroup { id: string; name: string; sessions: SessionSummary[]; projects: SessionProjectGroup[]; }
+
+function groupSessionsByAgent(projects: SessionProjectGroup[]): SessionAgentGroup[] {
+  const groups = new Map<string, SessionAgentGroup>();
+  for (const project of projects) {
+    const current = groups.get(project.agent);
+    if (current !== undefined) { current.projects.push(project); current.sessions.push(...project.sessions); continue; }
+    groups.set(project.agent, { id: project.agent, name: project.agent, sessions: [...project.sessions], projects: [project] });
+  }
+  return [...groups.values()].sort((left, right) => left.name.localeCompare(right.name));
 }
 
 function sessionDisplayTitle(session: SessionSummary, titles: Record<string, string>): string {

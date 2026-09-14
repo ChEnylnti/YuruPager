@@ -271,6 +271,11 @@ textarea { width: 100%; min-height: 76px; padding: 9px 10px; resize: vertical; }
 .entity-list > button:hover { background: var(--surface-muted); }
 .entity-list > button[data-selected="true"] { background: #e9efeb; box-shadow: inset 3px 0 0 var(--green); }
 .session-project-group { border-bottom: 1px solid var(--border); }
+.session-agent-group { border-bottom: 1px solid var(--border); }
+.session-agent-toggle { display: flex; align-items: center; gap: 9px; width: 100%; padding: 13px 16px 10px; border: 0; background: color-mix(in srgb, var(--faint) 55%, var(--surface)); color: inherit; cursor: pointer; text-align: left; }
+.session-agent-toggle strong { flex: 1; font-size: 12px; color: var(--muted); font-weight: 600; }
+.session-agent-toggle svg { color: var(--muted); transition: transform 160ms ease; }
+.session-agent-toggle svg.is-collapsed { transform: rotate(-90deg); }
 .session-project-toggle { display: grid; grid-template-columns: 32px minmax(0, 1fr) 28px 20px; gap: 9px; align-items: center; width: 100%; min-height: 72px; padding: 9px 12px; text-align: left; background: #f7f9f7; border: 0; }
 .session-project-toggle:hover { background: var(--surface-muted); }
 .session-project-icon { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; color: var(--green); background: var(--green-soft); border-radius: 6px; }
