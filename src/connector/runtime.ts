@@ -1093,21 +1093,25 @@ export async function sessionPayloadsFromThreadList(
     throw new Error("Codex thread/list returned an invalid response");
   }
   const results = await Promise.all(value.data.map(async (candidate): Promise<SessionUpsertPayload | null> => {
-    if (!isRecord(candidate) || typeof candidate.id !== "string" || typeof candidate.cwd !== "string" || !isAbsolute(candidate.cwd)) return null;
+    if (!isRecord(candidate) || typeof candidate.id !== "string") return null;
     const mapped = sessionStatus(candidate.status);
-    if (mapped === null) return null;
-    const canonicalPath = normalize(await canonicalize(candidate.cwd));
+    // Keep every thread returned by Codex. Older/newer app-server builds may
+    // omit cwd or introduce a status we do not understand; dropping those
+    // records makes the Web list disagree with the Codex client.
+    const rawPath = typeof candidate.cwd === "string" && isAbsolute(candidate.cwd) ? candidate.cwd : null;
+    const canonicalPath = rawPath === null ? null : normalize(await canonicalize(rawPath));
+    const projectIdentity = canonicalPath ?? `unclassified:${candidate.id}`;
     const payload: SessionUpsertPayload = {
       type: "session.upsert",
       threadId: candidate.id,
       agent: options.agentId ?? "codex",
       sessionId: candidate.id,
-      projectKey: projectKey(canonicalPath),
-      projectName: projectNameFromPath(canonicalPath),
-      projectPath: projectPathHint(canonicalPath),
+      projectKey: projectKey(projectIdentity),
+      projectName: canonicalPath === null ? "未归类会话" : projectNameFromPath(canonicalPath),
+      projectPath: canonicalPath === null ? "Codex 未提供项目路径" : projectPathHint(canonicalPath),
       model: options.model,
-      status: mapped.status,
-      syncState: mapped.syncState,
+      status: mapped?.status ?? "completed",
+      syncState: mapped?.syncState ?? "historical",
     };
     if (options.initiatedByEmail !== undefined) payload.initiatedByEmail = options.initiatedByEmail;
     const startedAt = unixTimestamp(candidate.createdAt);

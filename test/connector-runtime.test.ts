@@ -79,7 +79,7 @@ test("extracts only bounded official Codex names for the ephemeral title channel
   assert.equal(sanitizeSessionTitle("  Explain\t agent   vs workflow \u2066 "), "Explain agent vs workflow");
 });
 
-test("discovers multiple projects and ignores malformed threads", async () => {
+test("retains threads with relative paths or newer statuses for client parity", async () => {
   const sessions = await sessionPayloadsFromThreadList({
     data: [
       { id: "other", cwd: "/another/trace-agent", status: { type: "idle" } },
@@ -89,9 +89,11 @@ test("discovers multiple projects and ignores malformed threads", async () => {
   }, {
     model: "gpt-5.6-codex",
   }, async (path) => path);
-  assert.equal(sessions.length, 1);
+  assert.equal(sessions.length, 3);
   assert.equal(sessions[0]?.projectName, "trace-agent");
   assert.equal(sessions[0]?.projectPath, "trace-agent");
+  assert.equal(sessions.find((session) => session.threadId === "relative")?.projectName, "未归类会话");
+  assert.equal(sessions.find((session) => session.threadId === "unknown")?.syncState, "historical");
 });
 
 test("does not label unloaded Codex history as waiting for input", async () => {
