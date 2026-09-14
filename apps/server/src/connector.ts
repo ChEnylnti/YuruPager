@@ -73,7 +73,13 @@ function startConnectorConnection(
     alive = false;
     socket.ping();
     send(socket, { type: "heartbeat", timestamp: new Date().toISOString() });
-    void heartbeatWorkstation(database.connector, identity).catch((error: unknown) => app.log.error(error));
+    // A socket is only considered online after the application handshake. A
+    // TCP connection that is still pending authentication must not make the
+    // workstation look healthy in snapshots while session streaming is unable
+    // to use it.
+    if (handshake.state === "active") {
+      void heartbeatWorkstation(database.connector, identity).catch((error: unknown) => app.log.error(error));
+    }
   }, 15_000);
 
   socket.on("close", () => {

@@ -164,7 +164,10 @@ export async function getSnapshot(
         );
     const workstations = await client.query<DbRow>(
           `SELECT w.id, w.workspace_id, ws.name AS workspace_name, w.name, w.platform,
-                  w.connector_version, w.status, w.last_seen_at,
+                  w.connector_version,
+                  CASE WHEN w.status = 'online' AND w.last_seen_at >= now() - interval '45 seconds'
+                       THEN 'online' ELSE 'offline' END AS status,
+                  w.last_seen_at,
                   count(DISTINCT s.id) FILTER (WHERE s.status IN ('running', 'waiting'))::int AS active_session_count,
                   count(DISTINCT r.id) FILTER (WHERE r.status = 'pending')::int AS pending_count
              FROM workstations w
