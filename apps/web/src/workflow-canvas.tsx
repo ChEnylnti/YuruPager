@@ -9,6 +9,8 @@ import {
   type NodeChange,
   ReactFlow,
   ReactFlowProvider,
+  Handle,
+  Position,
   useEdgesState,
   useNodesState,
 } from "@xyflow/react";
@@ -170,6 +172,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps): React.JSX.Element {
   const [goal, setGoal] = useState("");
   const [runs, setRuns] = useState<WorkflowRunSummary[]>([]);
   const [activeRun, setActiveRun] = useState<WorkflowRunSummary | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const loadedFor = useRef<string | null>(null);
 
@@ -207,6 +210,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps): React.JSX.Element {
     setGoal(workflow.goal);
     setNodes(snapshotToNodes(workflow.definition));
     setEdges(snapshotToEdges(workflow.definition));
+    setSelectedNodeId(workflow.definition.nodes[0]?.id ?? null);
     try {
       setRuns(await getWorkflowRuns(workspaceId, workflow.id));
     } catch {
@@ -222,6 +226,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps): React.JSX.Element {
     setEdges([]);
     setRuns([]);
     setActiveRun(null);
+    setSelectedNodeId(null);
   }, []);
 
   const handleAddNode = useCallback(() => {
@@ -231,6 +236,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps): React.JSX.Element {
       position: { x: 60 + nodes.length * 280, y: 80 },
       data: { ...emptyNodeData(), label: `#${nodes.length + 1}` },
     };
+    setSelectedNodeId(id);
     setNodes((current) => [...current, newNode]);
     // v1 is a linear chain: a new node automatically chains to the current tail.
     const tail = nodes.at(-1);
@@ -396,6 +402,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps): React.JSX.Element {
     return [...kinds].sort();
   }, [props.snapshot.sessions, workstations]);
 
+  const selectedNode = nodes.find((node) => node.id === selectedNodeId) ?? null;
   return React.createElement(ReactFlowProvider, null,
     React.createElement("div", { className: "workflow-view" },
       React.createElement("header", { className: "workflow-toolbar" },
@@ -434,18 +441,24 @@ export function WorkflowCanvas(props: WorkflowCanvasProps): React.JSX.Element {
       React.createElement("div", { className: "workflow-body" },
         React.createElement("div", { className: "workflow-canvas" },
           React.createElement(ReactFlow, {
-            nodes, edges, onNodesChange, onEdgesChange, onConnect: handleConnect,
+            edges, onNodesChange, onEdgesChange, onConnect: handleConnect,
             fitView: true, proOptions: { hideAttribution: true },
+            nodeTypes: { workflow: WorkflowNode },
+            onNodeClick: ((_event: React.MouseEvent, node: Node) => setSelectedNodeId(node.id)) as never,
+            onPaneClick: () => setSelectedNodeId(null),
+            nodes: nodes.map((node) => ({ ...node, type: "workflow", selected: node.id === selectedNodeId })),
           }, React.createElement(Background, null), React.createElement(Controls, null)),
           nodes.length === 0 && React.createElement("div", { className: "workflow-empty", role: "status" },
             React.createElement("div", { className: "workflow-empty-icon", "aria-hidden": "true" }, "＋"),
             React.createElement("h2", null, "从一个节点开始"),
             React.createElement("p", null, "添加 Agent 节点，把任务串成一条可运行的工作流。"),
             React.createElement("button", { className: "primary-button", type: "button", onClick: handleAddNode }, workflowText.addNodeAction)),
-          nodes.map((node, index) => React.createElement(NodePanel, {
-            key: node.id, node, index, agentKinds,
-            onChange: (patch) => updateNodeData(node.id, patch),
-          }))),
+          selectedNode !== null && React.createElement("aside", { className: "workflow-inspector", "aria-label": "节点设置" },
+            React.createElement("div", { className: "inspector-heading" },
+              React.createElement("span", { className: "eyebrow" }, `节点 ${nodes.findIndex((node) => node.id === selectedNode.id) + 1}`),
+              React.createElement("button", { className: "icon-button", type: "button", onClick: () => setSelectedNodeId(null), "aria-label": "关闭节点设置" }, "×")),
+            React.createElement(NodePanel, { node: selectedNode, index: nodes.findIndex((node) => node.id === selectedNode.id), agentKinds, onChange: (patch) => updateNodeData(selectedNode.id, patch) })),
+        ),
         runs.length > 0 && React.createElement("section", { className: "workflow-runs", "aria-label": workflowText.runsAria },
           React.createElement("h3", null, workflowText.runsHeading),
           runs.map((run) => React.createElement(RunLine, {
@@ -510,6 +523,18 @@ function NodePanel(props: {
         onChange: (event: { target: { value: string } }) => onChange({ handoffPrompt: event.target.value }),
         placeholder: workflowText.handoffPlaceholder,
       })),
+  );
+}
+
+function WorkflowNode({ data, selected }: { data: CanvasNodeData; selected?: boolean }): React.JSX.Element {
+  const condition = data.conditionKind === "criteria_check" ? "校验条件" : data.conditionKind === "manual_gate" ? "人工确认" : "Agent 确认";
+  return React.createElement("div", { className: "workflow-node-card", "data-selected": selected ? "true" : undefined },
+    React.createElement(Handle, { type: "target", position: Position.Left }),
+    React.createElement("div", { className: "workflow-node-kicker" }, data.agentKind, React.createElement("span", null, data.reasoningEffort)),
+    React.createElement("strong", null, data.label || "未命名节点"),
+    React.createElement("p", null, data.task.trim() || "添加任务描述…"),
+    React.createElement("span", { className: "workflow-node-condition" }, condition),
+    React.createElement(Handle, { type: "source", position: Position.Right }),
   );
 }
 

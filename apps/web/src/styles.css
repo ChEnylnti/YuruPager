@@ -810,7 +810,17 @@ td small { display: block; margin-top: 3px; color: var(--faint); font-size: 8px;
 .workflow-empty-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; background: color-mix(in srgb, var(--accent) 14%, white); color: var(--accent); font-size: 30px; }
 .workflow-empty h2 { margin: 4px 0 0; font-size: 20px; }
 .workflow-empty p { max-width: 300px; margin: 0 0 8px; color: var(--muted); }
-.workflow-node-panel { position: absolute; top: 12px; max-height: calc(100% - 24px); overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border)); border-radius: 14px; background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(12px); z-index: 5; min-width: 258px; max-width: 270px; box-shadow: 0 12px 28px rgb(20 35 55 / 12%); }
+.workflow-inspector { display: flex; flex-direction: column; min-width: 0; max-height: 520px; overflow: auto; padding: 18px; border: 1px solid color-mix(in srgb, var(--border) 75%, transparent); border-radius: 16px; background: var(--surface); box-shadow: 0 14px 35px rgb(20 35 55 / 8%); }
+.inspector-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.icon-button { border: 0; background: transparent; color: var(--muted); font-size: 24px; cursor: pointer; }
+.workflow-node-panel { position: static; max-height: none; overflow: visible; display: flex; flex-direction: column; gap: 10px; padding: 0; border: 0; background: transparent; min-width: 0; max-width: none; box-shadow: none; }
+.workflow-node-card { display: flex; flex-direction: column; gap: 7px; min-width: 190px; padding: 14px; border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); border-radius: 14px; background: var(--surface); box-shadow: 0 8px 22px rgb(20 35 55 / 12%); }
+.workflow-node-card[data-selected="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent), 0 10px 24px rgb(20 35 55 / 15%); }
+.workflow-node-kicker { display: flex; justify-content: space-between; color: var(--accent); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+.workflow-node-kicker span { color: var(--muted); text-transform: none; letter-spacing: 0; }
+.workflow-node-card strong { font-size: 14px; }
+.workflow-node-card p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.workflow-node-condition { align-self: flex-start; padding: 3px 7px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--accent); font-size: 10px; }
 .workflow-node-panel label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; }
 .workflow-runs { display: flex; flex-direction: column; gap: 8px; }
 .workflow-run-line { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
