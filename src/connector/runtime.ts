@@ -1103,15 +1103,20 @@ export async function sessionPayloadsFromThreadList(
     // identity instead of realpath-collapsing symlinks or mounted workspaces;
     // otherwise the two clients show different project buckets.
     const projectPath = rawPath === null ? null : normalize(rawPath);
-    const projectIdentity = projectPath ?? `unclassified:${candidate.id}`;
+    const hasGitProject = isRecord(candidate.gitInfo) && (
+      typeof candidate.gitInfo.sha === "string" ||
+      typeof candidate.gitInfo.branch === "string" ||
+      typeof candidate.gitInfo.repoRoot === "string"
+    );
+    const projectIdentity = projectPath !== null && hasGitProject ? projectPath : "unclassified";
     const payload: SessionUpsertPayload = {
       type: "session.upsert",
       threadId: candidate.id,
       agent: options.agentId ?? "codex",
       sessionId: candidate.id,
       projectKey: projectKey(projectIdentity),
-      projectName: projectPath === null ? "未归类会话" : projectNameFromPath(projectPath),
-      projectPath: projectPath === null ? "Codex 未提供项目路径" : projectPathHint(projectPath),
+      projectName: projectIdentity === "unclassified" ? "项目外会话" : projectNameFromPath(projectPath as string),
+      projectPath: projectIdentity === "unclassified" ? "Codex 临时会话（不属于项目）" : (projectPath === null ? "Codex 未提供项目路径" : projectPathHint(projectPath)),
       model: options.model,
       status: mapped?.status ?? "completed",
       syncState: mapped?.syncState ?? "historical",

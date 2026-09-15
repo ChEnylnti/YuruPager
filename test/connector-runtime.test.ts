@@ -92,8 +92,19 @@ test("retains threads with relative paths or newer statuses for client parity", 
   assert.equal(sessions.length, 3);
   assert.equal(sessions.find((session) => session.threadId === "other")?.projectName, "trace-agent");
   assert.equal(sessions.find((session) => session.threadId === "other")?.projectPath, "trace-agent");
-  assert.equal(sessions.find((session) => session.threadId === "relative")?.projectName, "未归类会话");
+  assert.equal(sessions.find((session) => session.threadId === "relative")?.projectName, "项目外会话");
   assert.equal(sessions.find((session) => session.threadId === "unknown")?.syncState, "historical");
+});
+
+test("groups non-project Codex threads under one unclassified project", async () => {
+  const sessions = await sessionPayloadsFromThreadList({
+    data: [
+      { id: "tmp-one", cwd: "/projects/tmp-one", gitInfo: null, status: { type: "idle" } },
+      { id: "tmp-two", cwd: "/projects/tmp-two", gitInfo: null, status: { type: "idle" } },
+    ],
+  }, { model: "gpt-5.6-codex" }, async (path) => path);
+  assert.equal(sessions[0]?.projectName, "项目外会话");
+  assert.equal(sessions[0]?.projectKey, sessions[1]?.projectKey);
 });
 
 test("does not label unloaded Codex history as waiting for input", async () => {
