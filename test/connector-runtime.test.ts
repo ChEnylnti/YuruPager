@@ -90,8 +90,8 @@ test("retains threads with relative paths or newer statuses for client parity", 
     model: "gpt-5.6-codex",
   }, async (path) => path);
   assert.equal(sessions.length, 3);
-  assert.equal(sessions[0]?.projectName, "trace-agent");
-  assert.equal(sessions[0]?.projectPath, "trace-agent");
+  assert.equal(sessions.find((session) => session.threadId === "other")?.projectName, "trace-agent");
+  assert.equal(sessions.find((session) => session.threadId === "other")?.projectPath, "trace-agent");
   assert.equal(sessions.find((session) => session.threadId === "relative")?.projectName, "未归类会话");
   assert.equal(sessions.find((session) => session.threadId === "unknown")?.syncState, "historical");
 });
@@ -104,15 +104,16 @@ test("does not label unloaded Codex history as waiting for input", async () => {
   assert.equal(sessions[0]?.syncState, "historical");
 });
 
-test("canonicalizes aliases to one stable project identity", async () => {
+test("preserves Codex raw cwd identities for project parity", async () => {
   const sessions = await sessionPayloadsFromThreadList({
     data: [
       { id: "alias-thread", cwd: "/tmp/project-link", status: { type: "idle" } },
       { id: "real-thread", cwd: "/srv/projects/trace-agent", status: { type: "idle" } },
     ],
   }, { model: "gpt-5.6-codex" }, async () => "/srv/projects/trace-agent");
-  assert.equal(sessions[0]?.projectKey, sessions[1]?.projectKey);
-  assert.equal(sessions[0]?.projectName, "trace-agent");
+  assert.notEqual(sessions[0]?.projectKey, sessions[1]?.projectKey);
+  assert.equal(sessions.find((session) => session.threadId === "alias-thread")?.projectName, "project-link");
+  assert.equal(sessions.find((session) => session.threadId === "real-thread")?.projectName, "trace-agent");
 });
 
 test("paginates the global Codex thread inventory without a cwd filter", async () => {

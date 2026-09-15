@@ -1099,16 +1099,19 @@ export async function sessionPayloadsFromThreadList(
     // omit cwd or introduce a status we do not understand; dropping those
     // records makes the Web list disagree with the Codex client.
     const rawPath = typeof candidate.cwd === "string" && isAbsolute(candidate.cwd) ? candidate.cwd : null;
-    const canonicalPath = rawPath === null ? null : normalize(await canonicalize(rawPath));
-    const projectIdentity = canonicalPath ?? `unclassified:${candidate.id}`;
+    // Codex Desktop groups by the cwd carried by thread/list. Preserve that
+    // identity instead of realpath-collapsing symlinks or mounted workspaces;
+    // otherwise the two clients show different project buckets.
+    const projectPath = rawPath === null ? null : normalize(rawPath);
+    const projectIdentity = projectPath ?? `unclassified:${candidate.id}`;
     const payload: SessionUpsertPayload = {
       type: "session.upsert",
       threadId: candidate.id,
       agent: options.agentId ?? "codex",
       sessionId: candidate.id,
       projectKey: projectKey(projectIdentity),
-      projectName: canonicalPath === null ? "未归类会话" : projectNameFromPath(canonicalPath),
-      projectPath: canonicalPath === null ? "Codex 未提供项目路径" : projectPathHint(canonicalPath),
+      projectName: projectPath === null ? "未归类会话" : projectNameFromPath(projectPath),
+      projectPath: projectPath === null ? "Codex 未提供项目路径" : projectPathHint(projectPath),
       model: options.model,
       status: mapped?.status ?? "completed",
       syncState: mapped?.syncState ?? "historical",
