@@ -1103,11 +1103,11 @@ export async function sessionPayloadsFromThreadList(
     // identity instead of realpath-collapsing symlinks or mounted workspaces;
     // otherwise the two clients show different project buckets.
     const projectPath = rawPath === null ? null : normalize(rawPath);
-    const hasGitProject = isRecord(candidate.gitInfo) && (
+    const hasGitProject = candidate.gitInfo === undefined || (isRecord(candidate.gitInfo) && (
       typeof candidate.gitInfo.sha === "string" ||
       typeof candidate.gitInfo.branch === "string" ||
       typeof candidate.gitInfo.repoRoot === "string"
-    );
+    ));
     const projectIdentity = projectPath !== null && hasGitProject ? projectPath : "unclassified";
     const payload: SessionUpsertPayload = {
       type: "session.upsert",

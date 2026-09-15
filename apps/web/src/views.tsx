@@ -416,7 +416,10 @@ export function groupSessionsByProject(sessions: SessionSummary[]): SessionProje
       sessions: [session],
     });
   }
-  return [...groups.values()];
+  // Stable partition: keep project/session recency, but put loose sessions last
+  // within each agent (including the legacy label from older connectors).
+  const outside = (name: string) => name === "项目外会话" || name === "未归类会话";
+  return [...groups.values()].sort((left, right) => Number(outside(left.name)) - Number(outside(right.name)));
 }
 
 function projectGroupId(session: SessionSummary): string {

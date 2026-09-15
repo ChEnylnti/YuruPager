@@ -24,6 +24,13 @@ const baseSession: SessionSummary = {
 };
 
 describe("session project index", () => {
+  it("keeps loose sessions last even when they are newer than projects", () => {
+    const groups = groupSessionsByProject([
+      { ...baseSession, id: "loose", projectKey: "outside", projectName: "项目外会话", updatedAt: "2026-08-10T09:05:00.000Z" },
+      baseSession,
+    ]);
+    expect(groups.map((group) => group.name)).toEqual(["trace-agent", "项目外会话"]);
+  });
   it("groups by workstation and opaque project key while preserving recency", () => {
     const sessions = [
       baseSession,
